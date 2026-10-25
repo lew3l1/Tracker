@@ -1773,20 +1773,18 @@
     if (event.key === 'Escape') closeAssistant();
   });
 
-  const loadingStartedAt = Date.now();
   let loadingFinished = false;
+  let loadingFailsafe;
   function finishLoadingScreen() {
     if (loadingFinished) return;
     loadingFinished = true;
-    const remaining = Math.max(0, 520 - (Date.now() - loadingStartedAt));
-    setTimeout(() => {
-      const screen = $('#loading-screen');
-      if (!screen) return;
-      screen.classList.add('is-hidden');
-      setTimeout(() => screen.remove(), 500);
-    }, remaining);
+    clearTimeout(loadingFailsafe);
+    const screen = $('#loading-screen');
+    if (!screen) return;
+    screen.classList.add('is-hidden');
+    setTimeout(() => screen.remove(), 220);
   }
-  const loadingFailsafe = setTimeout(finishLoadingScreen, 6500);
+  loadingFailsafe = setTimeout(finishLoadingScreen, 2200);
   const storedTheme = read(KEYS.theme, null);
   setTheme(storedTheme === 'dark' || storedTheme === 'light' ? storedTheme : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
   renderAll();
