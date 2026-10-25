@@ -146,4 +146,6 @@ window.FORMA_I18N = {
 "Не удалось найти пользователей.":"Could not search for users.",
 "Не удалось выполнить действие.":"Could not complete the action.",
 "Выполнение за сегодня":"Today's completion"
+,
+"Обновить прогресс":"Refresh progress"
 };
