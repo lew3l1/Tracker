@@ -138,7 +138,7 @@
     let node;
     while ((node = walker.nextNode())) {
       const parent = node.parentElement;
-      if (!parent || parent.closest('script,style,textarea,#account-profile-name,#account-profile-email,.assistant-message:not(#assistant-welcome)')) continue;
+      if (!parent || parent.closest('script,style,textarea,#account-profile-name,#account-profile-email,.assistant-message:not(#assistant-welcome),.community-person-identity')) continue;
       const translated = translateValue(node.nodeValue);
       if (translated !== node.nodeValue) node.nodeValue = translated;
     }
