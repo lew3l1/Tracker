@@ -40,7 +40,7 @@ Tracker/
 
 ## Google-авторизация и облачное хранение
 
-Кнопка **«Продолжить с Google»** и обработка OAuth уже реализованы в приложении. Чтобы она заработала, создай свой проект Supabase и включи Google Provider. Без настройки внешних ключей вход и облачная синхронизация намеренно остаются выключенными.
+Кнопка **«Продолжить с Google»** и обработка OAuth с PKCE (проверкой authorization code) уже реализованы в приложении. Чтобы она заработала, создай свой проект Supabase и включи Google Provider. Без настройки внешних ключей вход и облачная синхронизация намеренно остаются выключенными.
 
 ### 1. Создай проект Supabase
 
@@ -62,7 +62,7 @@ Tracker/
 2. В Google Cloud Console создай OAuth Client ID типа **Web application**.
 3. В Google Cloud добавь в **Authorized JavaScript origins** origin приложения (например, `https://YOUR_GITHUB_USERNAME.github.io`) и адрес локального тестирования (например, `http://localhost:8000`).
 4. В **Authorized redirect URIs** Google добавь callback URL, который Supabase показывает в настройках Google Provider. Обычно он имеет вид `https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback`.
-5. Скопируй Google Client ID и Client Secret в настройки Google Provider в Supabase. Секрет хранится только в Supabase, а не в GitHub.
+5. Скопируй Google Client ID и Client Secret в настройки Google Provider в Supabase. Секрет хранится только в Supabase, а не в GitHub. Если экран согласия Google находится в режиме **Testing**, добавь свой Gmail в список тестовых пользователей.
 6. В Supabase открой **Authentication → URL Configuration**. В **Site URL** укажи адрес сайта. В список **Redirect URLs** добавь адрес приложения в production (например, `https://YOUR_GITHUB_USERNAME.github.io/Tracker/`) и для локального теста `http://localhost:8000/`. Redirect URL должен точно совпадать с используемым адресом.
 
 Официальная инструкция: [Supabase — Sign in with Google](https://supabase.com/docs/guides/auth/social-login/auth-google).
