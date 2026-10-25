@@ -158,3 +158,44 @@
 .account-footer #account-logout{margin-left:auto}
 /* Keep the native hidden attribute authoritative inside dialogs and flex layouts. */
 #account-dialog [hidden] { display: none !important; }
+
+/* Focus timer and habit reminder workspace */
+.focus-workspace{display:grid;gap:17px;grid-template-columns:minmax(0,1fr)}
+.focus-timer-card,.reminders-card{min-width:0}
+.focus-live-dot{width:10px;height:10px;flex:none;border-radius:50%;background:var(--green);box-shadow:0 0 0 5px color-mix(in srgb,var(--green) 13%,transparent)}
+.focus-mode-switch{display:flex;gap:7px;flex-wrap:wrap;margin:5px 0 24px}
+.focus-mode-switch button{border:1px solid var(--line);background:var(--surface-2);color:var(--muted);border-radius:9px;padding:9px 12px;font-size:11px;font-weight:650}
+.focus-mode-switch button.active{background:var(--accent-soft);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
+.focus-timer-layout{display:grid;grid-template-columns:minmax(205px,.8fr) minmax(0,1.2fr);gap:28px;align-items:center;max-width:800px;margin:0 auto}
+.focus-timer-face{--timer-progress:100%;width:min(100%,270px);aspect-ratio:1;margin:0 auto;border-radius:50%;padding:12px;display:grid;place-items:center;background:conic-gradient(var(--accent) var(--timer-progress),var(--muted-surface) 0);box-shadow:0 8px 35px color-mix(in srgb,var(--accent) 13%,transparent)}
+.focus-timer-face>div{width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:9px;text-align:center;border-radius:50%;background:var(--surface)}
+.focus-timer-face strong{font-size:clamp(36px,5vw,56px);letter-spacing:-2px;font-variant-numeric:tabular-nums;line-height:1}
+.focus-timer-face span{font-size:11px;color:var(--muted);max-width:160px}
+.focus-timer-controls{min-width:0}
+.focus-timer-controls .field-label{margin-top:0}
+.focus-hint{font-size:11px;line-height:1.65;margin:13px 0}
+.focus-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:17px}
+.focus-session-status{border-top:1px solid var(--line);margin:21px 0 0;padding-top:14px;color:var(--muted);font-size:11px}
+.notification-permission{display:flex;align-items:center;gap:13px;padding:14px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2);margin-bottom:17px}
+.notification-symbol{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:12px;background:var(--accent-soft);color:var(--accent);font-size:22px}
+.notification-copy{flex:1;min-width:0}
+.notification-copy strong{font-size:12px}
+.notification-copy p{font-size:10px;line-height:1.55;color:var(--muted);margin:4px 0 0}
+.notification-permission .btn{white-space:nowrap;flex:none}
+.reminder-list{display:grid;gap:8px}
+.reminder-row{display:flex;align-items:center;gap:11px;padding:12px;border:1px solid var(--line);border-radius:12px;min-width:0;transition:background .15s,border-color .15s}
+.reminder-row.enabled{border-color:color-mix(in srgb,var(--accent) 38%,var(--line));background:color-mix(in srgb,var(--accent-soft) 45%,var(--surface))}
+.reminder-emoji{width:39px;height:39px;display:grid;place-items:center;flex:none;border-radius:11px;background:var(--muted-surface);font-size:20px}
+.reminder-info{flex:1;min-width:0}
+.reminder-info strong{display:block;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reminder-info small{display:block;color:var(--muted);font-size:10px;margin-top:4px}
+.reminder-time{width:112px;flex:none;padding:8px 9px}
+.reminder-switch{width:37px;height:22px;flex:none;appearance:none;border:0;border-radius:99px;background:var(--line);position:relative;cursor:pointer;transition:background .18s}
+.reminder-switch:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;border-radius:50%;background:white;box-shadow:0 1px 4px #0002;transition:transform .18s}
+.reminder-switch:checked{background:var(--accent)}
+.reminder-switch:checked:before{transform:translateX(15px)}
+.reminder-switch:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.reminder-footnote{margin:15px 0 0;color:var(--muted);font-size:10px;line-height:1.65}
+#view-focus[hidden]{display:none!important}
+@media(min-width:1050px){.focus-workspace{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)}}
+@media(max-width:700px){.focus-timer-layout{grid-template-columns:1fr;gap:20px}.focus-timer-face{width:min(72vw,235px)}.focus-timer-controls{width:100%}.focus-mode-switch{display:grid;grid-template-columns:1fr}.focus-mode-switch button{text-align:left}.notification-permission{align-items:flex-start;flex-wrap:wrap}.notification-copy{flex-basis:calc(100% - 60px)}.notification-permission .btn{margin-left:55px}.reminder-row{gap:8px;padding:9px}.reminder-emoji{width:33px;height:33px;font-size:17px}.reminder-info strong{font-size:11px}.reminder-time{width:90px;padding:7px 5px}.reminder-info small{font-size:9px}}
