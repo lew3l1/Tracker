@@ -136,4 +136,14 @@ window.FORMA_I18N = {
 "Синий кит сопровождает загрузку Forma":"A blue whale accompanies Forma startup",
 "Собираем твой день в одно целое":"Bringing your day together",
 "Маленькие шаги. Большие изменения.":"Small steps. Big changes."
+,
+"Введи не менее 2 символов username: латинские буквы, цифры или _.":"Enter at least 2 username characters: Latin letters, numbers, or _.",
+"Удалить друга из своего списка?":"Remove this friend from your list?",
+"Нельзя добавить собственный аккаунт.":"You cannot add your own account.",
+"Заявка не найдена.":"Friend request not found.",
+"Пользователь не найден.":"User not found.",
+"Не удалось загрузить систему друзей.":"Could not load Friends.",
+"Не удалось найти пользователей.":"Could not search for users.",
+"Не удалось выполнить действие.":"Could not complete the action.",
+"Выполнение за сегодня":"Today's completion"
 };
