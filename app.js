@@ -954,7 +954,7 @@
       ? '<p class="community-empty">' + communityText('Обновляем круг друзей…') + '</p>'
       : communityFriends.length ? '<div class="community-friend-grid">' + communityFriends.map(communityFriendCard).join('') + '</div>'
       : '<p class="community-empty">' + communityText('Добавь первого друга — и вы сможете поддерживать друг друга.') + '</p>';
-    $('.community-avatar img').forEach(imageNode => {
+    $$('.community-avatar img').forEach(imageNode => {
       imageNode.addEventListener('error', () => imageNode.remove(), { once: true });
     });
   }
