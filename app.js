@@ -52,6 +52,26 @@
     const time = now.toLocaleTimeString(localeForLanguage(), { hour: 'numeric', minute: '2-digit', hour12: language === 'en' });
     return date + ' · ' + time;
   }
+  function formatReminderTime(value) {
+    const normalized = parseReminderTime(value);
+    if (!normalized) return language === 'en' ? '9:00 AM' : '09:00';
+    if (language !== 'en') return normalized;
+    const [hourValue, minuteValue] = normalized.split(':').map(Number);
+    const suffix = hourValue >= 12 ? 'PM' : 'AM';
+    const hour12 = hourValue % 12 || 12;
+    return hour12 + ':' + String(minuteValue).padStart(2, '0') + ' ' + suffix;
+  }
+  function parseReminderTime(value) {
+    const input = String(value || '').trim().toUpperCase().replace(/\s+/g, ' ');
+    let match = input.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+    if (match) return String(Number(match[1])).padStart(2, '0') + ':' + match[2];
+    match = input.match(/^(0?[1-9]|1[0-2]):([0-5]\d)\s*(AM|PM)$/);
+    if (!match) return null;
+    let hour = Number(match[1]) % 12;
+    if (match[3] === 'PM') hour += 12;
+    return String(hour).padStart(2, '0') + ':' + match[2];
+  }
+
   const TRANSLATIONS = window.FORMA_I18N || {};
   const TRANSLATIONS_REVERSE = Object.fromEntries(Object.entries(TRANSLATIONS).map(([ru, en]) => [en, ru]));
   function translateValue(value) {
@@ -423,8 +443,10 @@
       const setting = reminders[habit.id] || {};
       const enabled = setting.enabled === true;
       const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(setting.time || '') ? setting.time : '09:00';
+      const displayedTime = formatReminderTime(time);
+      const timePlaceholder = language === 'en' ? '9:00 AM' : '09:00';
       const done = isDone(habit.id, todayKey());
-      return '<div class="reminder-row ' + (enabled ? 'enabled' : '') + '"><span class="reminder-emoji">' + escapeHtml(habit.emoji) + '</span><div class="reminder-info"><strong>' + escapeHtml(habit.name) + '</strong><small>' + (done ? 'Выполнено сегодня ✓' : enabled ? 'Напомним сегодня, если ещё не отмечено' : escapeHtml(habit.category)) + '</small></div><input class="input reminder-time" type="time" value="' + time + '" data-reminder-time="' + escapeHtml(habit.id) + '" aria-label="Время напоминания для ' + escapeHtml(habit.name) + '"><input class="reminder-switch" type="checkbox" role="switch" data-reminder-toggle="' + escapeHtml(habit.id) + '" aria-label="Включить напоминание для ' + escapeHtml(habit.name) + '" ' + (enabled ? 'checked' : '') + '></div>';
+      return '<div class="reminder-row ' + (enabled ? 'enabled' : '') + '"><span class="reminder-emoji">' + escapeHtml(habit.emoji) + '</span><div class="reminder-info"><strong>' + escapeHtml(habit.name) + '</strong><small>' + (done ? 'Выполнено сегодня ✓' : enabled ? 'Напомним сегодня, если ещё не отмечено' : escapeHtml(habit.category)) + '</small></div><input class="input reminder-time" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" lang="' + language + '" placeholder="' + timePlaceholder + '" value="' + displayedTime + '" data-reminder-time="' + escapeHtml(habit.id) + '" aria-label="' + (language === 'en' ? 'Reminder time for ' : 'Время напоминания для ') + escapeHtml(habit.name) + '"><input class="reminder-switch" type="checkbox" role="switch" data-reminder-toggle="' + escapeHtml(habit.id) + '" aria-label="Включить напоминание для ' + escapeHtml(habit.name) + '" ' + (enabled ? 'checked' : '') + '></div>';
     }).join('') : '<div class="empty-state"><strong>Пока нет привычек</strong>Создай привычку, и здесь можно будет настроить напоминание.</div>';
     renderFocusTimer();
     applyLanguage();
@@ -537,13 +559,20 @@
     toast(enabled ? 'Напоминание включено' : 'Напоминание выключено');
     if (enabled) checkHabitReminders();
   }
-  function saveHabitReminderTime(habitId, time) {
+  function saveHabitReminderTime(habitId, inputValue) {
     if (!reminders[habitId]) reminders[habitId] = { enabled: false, time: '09:00', lastNotifiedDate: '' };
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return;
-    if (reminders[habitId].time !== time) reminders[habitId].lastNotifiedDate = '';
-    reminders[habitId].time = time;
-    write(KEYS.reminders, reminders);
+    const normalizedTime = parseReminderTime(inputValue);
     const row = $('[data-reminder-time="' + CSS.escape(habitId) + '"]')?.closest('.reminder-row');
+    const input = row && $('[data-reminder-time="' + CSS.escape(habitId) + '"]', row);
+    if (!normalizedTime) {
+      if (input) input.value = formatReminderTime(reminders[habitId].time || '09:00');
+      toast(language === 'en' ? 'Enter a time like 9:00 AM or 13:00.' : 'Укажи время, например 09:00.');
+      return;
+    }
+    if (reminders[habitId].time !== normalizedTime) reminders[habitId].lastNotifiedDate = '';
+    reminders[habitId].time = normalizedTime;
+    write(KEYS.reminders, reminders);
+    if (input) input.value = formatReminderTime(normalizedTime);
     if (row) row.classList.toggle('enabled', reminders[habitId].enabled === true);
     toast('Время напоминания сохранено');
     checkHabitReminders();
