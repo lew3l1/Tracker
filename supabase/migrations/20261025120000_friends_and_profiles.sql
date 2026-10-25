@@ -142,7 +142,7 @@ create trigger on_auth_user_created_forma_profile
 
 -- Backfill profiles for users who registered before the friends feature existed.
 -- Username collisions are resolved with a short, deterministic suffix from the auth user ID.
-do $
+do $$
 declare
   u record;
   v_name text;
@@ -182,7 +182,7 @@ begin
     on conflict (id) do nothing;
   end loop;
 end;
-$;
+$$;
 
 create or replace function public.accept_friend_request(p_request_id uuid)
 returns void
