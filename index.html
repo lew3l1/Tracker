@@ -66,13 +66,16 @@
         <div class="focus-workspace">
           <section class="card panel focus-timer-card">
             <div class="section-head"><div><p class="eyebrow">НЕБОЛЬШИМИ ШАГАМИ</p><h2>Таймер фокусировки</h2><p class="muted">Одна задача за раз. Уведомим, когда время закончится.</p></div><span class="focus-live-dot" aria-hidden="true"></span></div>
-            <div class="focus-mode-switch" role="group" aria-label="Режим таймера">
-              <button type="button" data-focus-mode="focus" class="active">Фокус · 25 мин</button>
-              <button type="button" data-focus-mode="short">Короткий отдых · 5 мин</button>
-              <button type="button" data-focus-mode="long">Длинный отдых · 15 мин</button>
-            </div>
             <div class="focus-timer-layout">
-              <div class="focus-timer-face" id="focus-timer-face" role="timer" aria-label="Осталось 25 минут"><div><strong id="focus-timer-display">25:00</strong><span id="focus-timer-caption">Пора сосредоточиться</span></div></div>
+              <div class="focus-timer-left">
+                <div class="focus-timer-face" id="focus-timer-face" role="timer" aria-label="Осталось 25 минут"><div><strong id="focus-timer-display">25:00</strong><span id="focus-timer-caption">Пора сосредоточиться</span></div></div>
+                <div class="focus-mode-switch" role="group" aria-label="Режим таймера">
+                  <button type="button" data-focus-mode="focus" class="active">Фокус · 25 мин</button>
+                  <button type="button" data-focus-mode="short">Короткий отдых · 5 мин</button>
+                  <button type="button" data-focus-mode="long">Длинный отдых · 15 мин</button>
+                </div>
+                <p class="focus-session-status" id="focus-session-status" aria-live="polite">Таймер готов к запуску.</p>
+              </div>
               <div class="focus-timer-controls">
                 <label class="field-label" for="focus-habit">На чём фокусируемся?</label>
                 <select class="input" id="focus-habit"></select>
@@ -80,7 +83,6 @@
                 <div class="focus-actions"><button type="button" class="btn primary" id="focus-toggle">▶ Начать фокус</button><button type="button" class="btn subtle" id="focus-reset">↺ Сбросить</button></div>
               </div>
             </div>
-            <p class="focus-session-status" id="focus-session-status" aria-live="polite">Таймер готов к запуску.</p>
           </section>
           <section class="card panel reminders-card">
             <div class="section-head"><div><p class="eyebrow">ЗАБОТА О СЕБЕ</p><h2>Напоминания о привычках</h2><p class="muted">Выбери время для каждого действия — Forma напомнит, если привычка ещё не отмечена.</p></div></div>
