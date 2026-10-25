@@ -43,6 +43,7 @@
 .account-tabs{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:4px;background:var(--muted-surface);border-radius:11px;margin:18px 0}
 .account-tabs button{border:0;border-radius:8px;padding:10px 8px;background:transparent;color:var(--muted);font-size:11px;font-weight:700}
 .account-tabs button.active{background:var(--surface);box-shadow:var(--shadow);color:var(--accent)}
+.account-sync-retry{width:100%;margin:10px 0 4px}
 .cloud-note{font-size:11px;line-height:1.65;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--muted);margin-bottom:14px}
 .account-submit{width:100%;margin-top:8px}
 .account-message{font-size:11px;line-height:1.5;color:var(--muted);min-height:10px;margin:10px 0 0;overflow-wrap:anywhere}
