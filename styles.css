@@ -131,3 +131,28 @@
 .google-signin:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));background:var(--surface-2)}
 .google-signin:disabled{opacity:.5;cursor:not-allowed}
 .google-note{font-size:10px;line-height:1.55;text-align:center;color:var(--muted);margin:9px 0 0}
+
+
+/* Signed-in user profile card */
+.account-profile-card{padding:16px;border:1px solid var(--line);border-radius:15px;background:var(--surface-2);margin:15px 0}
+.account-profile-top{display:flex;align-items:center;gap:13px;min-width:0}
+.account-profile-avatar{width:64px;height:64px;display:grid;place-items:center;flex:none;position:relative;overflow:hidden;border:1px solid var(--line);border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:24px;font-weight:800}
+.account-profile-avatar img,.avatar img,.account-btn img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:inherit}
+.account-profile-heading{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0}
+.account-profile-heading>strong{font-size:15px;line-height:1.35;overflow-wrap:anywhere}
+.account-profile-heading>span:not(.provider-chip){font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.provider-chip{display:inline-flex;align-items:center;border-radius:99px;padding:4px 8px;margin-top:4px;font-size:9px;font-weight:750;color:var(--green);background:var(--green-soft)}
+.account-profile-details{display:grid;gap:0;margin-top:14px;padding-top:7px;border-top:1px solid var(--line)}
+.account-profile-details>div{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:8px 0}
+.account-profile-details>div+div{border-top:1px solid var(--line)}
+.account-profile-details span{font-size:10px;color:var(--muted)}
+.account-profile-details strong{font-size:10px;text-align:right;overflow-wrap:anywhere;max-width:60%}
+.account-profile-details strong.sync-error{color:#d15b59}
+.account-profile-details strong.sync-ok{color:var(--green)}
+.account-profile-details strong.sync-pending{color:var(--orange)}
+.account-profile-card[hidden]{display:none}
+.account-btn{position:relative;overflow:hidden}
+.account-btn img{object-fit:cover}
+.account-btn #account-button-fallback{display:grid;place-items:center;width:100%;height:100%}
+.avatar{position:relative;overflow:hidden}
+.account-footer #account-logout{margin-left:auto}
