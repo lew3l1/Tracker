@@ -85,9 +85,33 @@ Tracker/
 
 В облаке сохраняются привычки, ежедневные галочки, записи дневника и тема. Каждому аккаунту соответствует отдельная строка в `user_data`, защищённая RLS. Локальный режим продолжает работать без облака.
 
-### ИИ-помощник
+### ИИ-помощник: развёртывание Edge Function
 
-Для настоящих ответов Forma AI дополнительно задеплой `supabase/functions/ai-assistant/index.ts` как Supabase Edge Function и установи секрет `OPENAI_API_KEY` на стороне Supabase Functions. Сам ключ OpenAI нельзя помещать в `supabase-config.js` или HTML.
+Важный момент: публикация сайта через GitHub Pages **не развёртывает** серверные функции Supabase автоматически. Если чат показывает `Failed to fetch`, часто это означает, что функция `ai-assistant` ещё не опубликована в Supabase, её URL недоступен или предварительный CORS-запрос не проходит.
+
+1. Установи Supabase CLI по [официальной инструкции](https://supabase.com/docs/guides/functions/quickstart), затем открой терминал в папке репозитория.
+2. Авторизуй CLI и привяжи локальный проект к Supabase:
+   ```bash
+   supabase login
+   supabase link --project-ref ptndtmueqfekwrkpqptc
+   ```
+3. Разверни функцию из репозитория:
+   ```bash
+   supabase functions deploy ai-assistant
+   ```
+4. Создай секрет `OPENAI_API_KEY` на стороне Supabase, заменив значение на свой ключ OpenAI:
+   ```bash
+   supabase secrets set OPENAI_API_KEY=YOUR_OPENAI_API_KEY --project-ref ptndtmueqfekwrkpqptc
+   ```
+   Не вставляй настоящий ключ в GitHub, `supabase-config.js`, HTML или клиентский JavaScript. Он должен храниться только в Secrets Supabase.
+5. В Supabase Dashboard открой **Edge Functions → ai-assistant → Invocations / Logs** и проверь вызовы. Функция требует пользовательский JWT и дополнительно ограничивает частоту запросов.
+6. Обнови GitHub Pages, закрой и заново открой чат Forma AI и отправь тестовый вопрос.
+
+Функция вызывает OpenAI Responses API через сервер, так что ключ OpenAI не раскрывается браузеру. Вызовы ИИ могут тарифицироваться отдельно на стороне OpenAI; проверь свой API-биллинг и лимиты.
+
+Если останется ошибка, открой Supabase → Edge Functions → `ai-assistant` → Logs. Сообщение `OPENAI_API_KEY` означает, что секрет не задан; `404` обычно означает, что функция не развёрнута или используется неверное имя; ошибки CORS/сети — проверь адрес проекта, CORS preflight и раздел Invocations.
+
+
 
 ## Публикация через GitHub Pages
 
