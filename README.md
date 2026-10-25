@@ -21,7 +21,8 @@
 - Аналитика за 7 и 30 дней, календарь активности и статистика по категориям.
 - Дневник с настроением и ежедневной рефлексией.
 - Экспорт резервной копии JSON. Для восстановления JSON-файла дважды щёлкни по круглой букве «F» в нижней части боковой панели и выбери файл.
-- Все данные хранятся локально в браузере через `localStorage`.
+- Без облачной настройки данные хранятся локально в браузере через `localStorage`.
+- Google-вход и облачное сохранение через Supabase (после настройки внешних credentials; см. раздел ниже).
 
 ## Файлы проекта
 
@@ -36,6 +37,57 @@ Tracker/
 ## Хранение и приватность
 
 Данные привычек, отметок, дневника и темы хранятся в текущем браузере. Они не отправляются в GitHub или на сторонний сервер, но не синхронизируются между устройствами. Экспортируй JSON перед очисткой данных браузера или переносом на другой компьютер.
+
+## Google-авторизация и облачное хранение
+
+Кнопка **«Продолжить с Google»** и обработка OAuth уже реализованы в приложении. Чтобы она заработала, создай свой проект Supabase и включи Google Provider. Без настройки внешних ключей вход и облачная синхронизация намеренно остаются выключенными.
+
+### 1. Создай проект Supabase
+
+1. Создай проект на [supabase.com/dashboard](https://supabase.com/dashboard).
+2. В **Project Settings → API** скопируй Project URL и публичный **publishable/anon key**.
+3. Впиши эти два значения в корневой файл `supabase-config.js`:
+   ```js
+   window.FORMA_CONFIG = {
+     supabaseUrl: "https://YOUR_PROJECT_REF.supabase.co",
+     supabaseAnonKey: "YOUR_PUBLIC_PUBLISHABLE_OR_ANON_KEY",
+     aiFunctionName: "ai-assistant"
+   };
+   ```
+   Клиентский ключ должен быть только публичным publishable/anon key. **Никогда не размещай в этом файле secret key, service_role key, пароль базы или ключ OpenAI.**
+
+### 2. Включи Google Provider
+
+1. В Supabase открой **Authentication → Sign In / Providers → Google** и включи Google.
+2. В Google Cloud Console создай OAuth Client ID типа **Web application**.
+3. В Google Cloud добавь в **Authorized JavaScript origins** origin приложения (например, `https://YOUR_GITHUB_USERNAME.github.io`) и адрес локального тестирования (например, `http://localhost:8000`).
+4. В **Authorized redirect URIs** Google добавь callback URL, который Supabase показывает в настройках Google Provider. Обычно он имеет вид `https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback`.
+5. Скопируй Google Client ID и Client Secret в настройки Google Provider в Supabase. Секрет хранится только в Supabase, а не в GitHub.
+6. В Supabase открой **Authentication → URL Configuration**. В **Site URL** укажи адрес сайта. В список **Redirect URLs** добавь адрес приложения в production (например, `https://YOUR_GITHUB_USERNAME.github.io/Tracker/`) и для локального теста `http://localhost:8000/`. Redirect URL должен точно совпадать с используемым адресом.
+
+Официальная инструкция: [Supabase — Sign in with Google](https://supabase.com/docs/guides/auth/social-login/auth-google).
+
+### 3. Создай таблицу данных
+
+Открой **SQL Editor** в Supabase и выполни содержимое файла [`supabase/migrations/20261025000000_user_data.sql`](supabase/migrations/20261025000000_user_data.sql). Таблица использует Row Level Security: каждый вошедший пользователь может читать и менять только строку со своим `auth.uid()`.
+
+### 4. Проверь вход и синхронизацию
+
+1. Обнови сайт после сохранения конфигурации.
+2. Нажми на иконку профиля → **Продолжить с Google**.
+3. После возврата Google Forma получит Supabase-сессию, загрузит данные этого пользователя или перенесёт текущие гостевые данные в новый аккаунт.
+4. После входа привычки, отметки, дневник и выбранная тема автоматически синхронизируются с облачной строкой пользователя.
+5. Перед первым тестом лучше экспортировать локальную резервную копию через значок загрузки в боковой панели.
+
+Если ты ещё не настроил Google Client ID, Supabase URL/key или таблицу SQL, это не ошибка сайта — облачная авторизация пока не может заработать. Не публикуй секреты Google, Supabase service-role или OpenAI в репозитории.
+
+### Что синхронизируется
+
+В облаке сохраняются привычки, ежедневные галочки, записи дневника и тема. Каждому аккаунту соответствует отдельная строка в `user_data`, защищённая RLS. Локальный режим продолжает работать без облака.
+
+### ИИ-помощник
+
+Для настоящих ответов Forma AI дополнительно задеплой `supabase/functions/ai-assistant/index.ts` как Supabase Edge Function и установи секрет `OPENAI_API_KEY` на стороне Supabase Functions. Сам ключ OpenAI нельзя помещать в `supabase-config.js` или HTML.
 
 ## Публикация через GitHub Pages
 
