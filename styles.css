@@ -121,3 +121,13 @@
   .habit-dialog[open]{max-height:calc(100dvh - 24px);overflow:auto}
   .account-dialog[open]{max-height:calc(100dvh - 24px);overflow:auto}
 }
+
+
+/* Google identity button */
+.oauth-divider{display:flex;align-items:center;gap:12px;margin:17px 0;color:var(--faint);font-size:10px}
+.oauth-divider:before,.oauth-divider:after{content:"";height:1px;flex:1;background:var(--line)}
+.google-signin{display:flex;justify-content:center;align-items:center;gap:11px;width:100%;border:1px solid var(--line);border-radius:11px;background:var(--surface);color:var(--text);padding:11px 14px;font-size:12px;font-weight:700;transition:border-color .16s,background .16s}
+.google-signin svg{width:18px;height:18px;flex:none}
+.google-signin:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));background:var(--surface-2)}
+.google-signin:disabled{opacity:.5;cursor:not-allowed}
+.google-note{font-size:10px;line-height:1.55;text-align:center;color:var(--muted);margin:9px 0 0}
