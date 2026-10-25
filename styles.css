@@ -300,8 +300,11 @@
 /* Minimal, fast Forma loading screen: mark + progress bar only. */
 .loading-screen{position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px;background:var(--bg);color:var(--text);opacity:1;visibility:visible;transition:opacity .18s ease,visibility .18s ease}
 .loading-screen.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
-.loading-mark{width:132px;height:100px;display:grid;place-items:center}
+.loading-mark{width:132px;height:100px;display:grid;place-items:center;position:relative}
 .loading-whale{display:block;width:132px;height:auto;overflow:visible;filter:drop-shadow(0 8px 16px rgba(37,126,206,.14));animation:whale-float 1.8s ease-in-out infinite}
+.loading-custom-icon{display:none;width:100px;height:100px;object-fit:contain;animation:whale-float 1.8s ease-in-out infinite}
+.loading-mark.has-custom-icon .loading-custom-icon{display:block}
+.loading-mark.has-custom-icon .loading-whale{display:none}
 .loading-whale .whale-water{animation:whale-spout 1.8s ease-in-out infinite;transform-origin:110px 21px}
 .loading-progress{width:132px;height:4px;background:var(--line);border-radius:10px;overflow:hidden}
 .loading-progress span{display:block;width:38%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#55c8f3,#357fe0);animation:loading-sweep .95s ease-in-out infinite}
