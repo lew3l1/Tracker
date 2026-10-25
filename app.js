@@ -74,7 +74,7 @@
       const hintSuffix = ' · Уже выполнено сегодня — отличная работа.';
       if (core.endsWith(hintSuffix)) return lead + translateValue(core.slice(0, -hintSuffix.length)) + ' · Already completed today — great work.' + trail;
       for (const [ru, en] of Object.entries(TRANSLATIONS)) {
-        if ((ru.endsWith(':') || ru.endsWith('(') || (ru.endsWith('«') && ru !== 'Удалить привычку «')) && core.startsWith(ru)) return lead + en + core.slice(ru.length) + trail;
+        if ((ru.endsWith(':') || ru.endsWith('(') || (ru.endsWith('«') && ru !== 'Удалить привычку «')) && core.startsWith(ru)) return lead + en + translateValue(core.slice(ru.length)) + trail;
       }
     } else {
       match = core.match(/^(\d+) completed$/); if (match) return lead + match[1] + ' выполнено' + trail;
@@ -86,7 +86,7 @@
       const englishHintSuffix = ' · Already completed today — great work.';
       if (core.endsWith(englishHintSuffix)) return lead + translateValue(core.slice(0, -englishHintSuffix.length)) + ' · Уже выполнено сегодня — отличная работа.' + trail;
       for (const [en, ru] of Object.entries(TRANSLATIONS_REVERSE)) {
-        if ((en.endsWith(':') || en.endsWith('(') || (en.endsWith('“') && en !== 'Delete the habit “')) && core.startsWith(en)) return lead + ru + core.slice(en.length) + trail;
+        if ((en.endsWith(':') || en.endsWith('(') || (en.endsWith('“') && en !== 'Delete the habit “')) && core.startsWith(en)) return lead + ru + translateValue(core.slice(en.length)) + trail;
       }
       const removeConfirm = core.match(/^Delete the habit “(.+)”\? Its check-in history will also be deleted\.$/);
       if (removeConfirm) return lead + 'Удалить привычку «' + removeConfirm[1] + '»? История её отметок тоже будет удалена.' + trail;
