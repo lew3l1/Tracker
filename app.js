@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const KEYS = { habits: 'forma.habits.v1', logs: 'forma.logs.v1', journal: 'forma.journal.v1', theme: 'forma.theme.v1', auth: 'forma.auth.session.v1' };
+  const KEYS = { habits: 'forma.habits.v1', logs: 'forma.logs.v1', journal: 'forma.journal.v1', theme: 'forma.theme.v1', auth: 'forma.auth.session.v1', owner: 'forma.data.owner.v1' };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const categories = ['Здоровье', 'Развитие', 'Фокус', 'Осознанность'];
@@ -72,6 +72,7 @@
     return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   }
   let session = read(KEYS.auth, null);
+  let dataOwner = read(KEYS.owner, null) || (session && session.user && session.user.id) || 'guest';
   let hydratingCloud = true;
   let cloudTimer = 0;
   let cloudSyncInFlight = false;
@@ -308,6 +309,11 @@
     $('#profile-subtitle').textContent = email ? 'Облачный аккаунт' : 'Данные в браузере';
     $('#account-open').title = email ? 'Аккаунт: ' + email : 'Войти или создать аккаунт';
     $('#account-logout').hidden = !email;
+    $('#account-form').hidden = Boolean(email);
+    $('.account-tabs').hidden = Boolean(email);
+    $('.oauth-divider').hidden = Boolean(email);
+    $('#google-signin').hidden = Boolean(email);
+    $('.google-note').hidden = Boolean(email);
     $('#account-submit').disabled = !cloudConfigured();
     $('#google-signin').disabled = !cloudConfigured();
     const note = $('#account-cloud-note');
@@ -389,6 +395,44 @@
   function localSnapshot() {
     return { habits, logs, journal, theme: document.documentElement.dataset.theme || 'light' };
   }
+  function setDataOwner(owner) {
+    dataOwner = owner || 'guest';
+    try { localStorage.setItem(KEYS.owner, JSON.stringify(dataOwner)); }
+    catch (error) { console.warn('Не удалось сохранить метку владельца локальных данных.', error); }
+  }
+  function captureGuestSnapshot() {
+    if (dataOwner !== 'guest' || session) return;
+    try {
+      localStorage.setItem('forma.guest.backup.v1', JSON.stringify({
+        schema: 'forma-guest-v1',
+        savedAt: new Date().toISOString(),
+        ...localSnapshot()
+      }));
+    } catch (error) {
+      console.warn('Не удалось сохранить гостевую резервную копию.', error);
+    }
+  }
+  function applyLocalSnapshot(snapshot, owner = 'guest') {
+    hydratingCloud = true;
+    habits = snapshot && Array.isArray(snapshot.habits) ? snapshot.habits : seedHabits.map(habit => ({ ...habit }));
+    logs = snapshot && snapshot.logs && typeof snapshot.logs === 'object' ? snapshot.logs : {};
+    journal = snapshot && snapshot.journal && typeof snapshot.journal === 'object' ? snapshot.journal : {};
+    write(KEYS.habits, habits);
+    write(KEYS.logs, logs);
+    write(KEYS.journal, journal);
+    if (snapshot && (snapshot.theme === 'light' || snapshot.theme === 'dark')) setTheme(snapshot.theme);
+    setDataOwner(owner);
+    hydratingCloud = false;
+    renderAll();
+  }
+  function restoreGuestSnapshot() {
+    const guest = read('forma.guest.backup.v1', null);
+    if (guest && Array.isArray(guest.habits)) {
+      applyLocalSnapshot(guest, 'guest');
+    } else {
+      applyLocalSnapshot({ habits: seedHabits.map(habit => ({ ...habit })), logs: {}, journal: {} }, 'guest');
+    }
+  }
   async function pushCloudData(silent = false) {
     if (!cloudConfigured() || !session || !session.user || hydratingCloud || cloudSyncInFlight) return;
     cloudSyncInFlight = true;
@@ -401,10 +445,12 @@
         body: JSON.stringify({ user_id: session.user.id, payload, updated_at: new Date().toISOString() })
       });
       if (!silent) $('#profile-subtitle').textContent = 'Синхронизировано';
+      return true;
     } catch (error) {
       console.error('Ошибка облачной синхронизации Forma:', error);
       $('#profile-subtitle').textContent = 'Нет синхронизации';
       if (!silent) toast('Не удалось синхронизировать данные: ' + error.message);
+      return false;
     } finally {
       cloudSyncInFlight = false;
     }
@@ -417,11 +463,15 @@
   async function syncAccountData() {
     if (!session || !session.user) return;
     const localBeforeSync = localSnapshot();
+    const wasGuest = dataOwner === 'guest';
     try {
       const rows = await supabaseDataRequest('user_data?select=payload,updated_at&user_id=eq.' + encodeURIComponent(session.user.id) + '&limit=1', { method: 'GET' });
       if (Array.isArray(rows) && rows.length && rows[0].payload && typeof rows[0].payload === 'object') {
-        // Keep a recoverable copy of guest/local progress before switching to this account.
-        try { localStorage.setItem('forma.guest.backup.v1', JSON.stringify({ savedAt: new Date().toISOString(), ...localBeforeSync })); } catch (error) { console.warn('Не удалось сохранить гостевую копию.', error); }
+        // Preserve local guest progress only when the current data really belongs to a guest.
+        if (wasGuest) {
+          try { localStorage.setItem('forma.guest.backup.v1', JSON.stringify({ schema: 'forma-guest-v1', savedAt: new Date().toISOString(), ...localBeforeSync })); }
+          catch (error) { console.warn('Не удалось сохранить гостевую копию.', error); }
+        }
         const remote = rows[0].payload;
         habits = Array.isArray(remote.habits) ? remote.habits : habits;
         logs = remote.logs && typeof remote.logs === 'object' ? remote.logs : {};
@@ -429,14 +479,25 @@
         hydratingCloud = true;
         write(KEYS.habits, habits); write(KEYS.logs, logs); write(KEYS.journal, journal);
         if (remote.theme === 'light' || remote.theme === 'dark') setTheme(remote.theme);
+        setDataOwner(session.user.id);
         hydratingCloud = false;
         renderAll();
         $('#profile-subtitle').textContent = 'Синхронизировано';
       } else {
+        // A brand-new account receives the current guest data once; an existing account
+        // never imports another profile's local cache implicitly.
+        if (!wasGuest && dataOwner !== session.user.id) {
+          applyLocalSnapshot({ habits: seedHabits.map(habit => ({ ...habit })), logs: {}, journal: {}, theme: document.documentElement.dataset.theme || 'light' }, session.user.id);
+        } else if (wasGuest) {
+          try { localStorage.setItem('forma.guest.backup.v1', JSON.stringify({ schema: 'forma-guest-v1', savedAt: new Date().toISOString(), ...localBeforeSync })); }
+          catch (error) { console.warn('Не удалось сохранить гостевую копию.', error); }
+        }
         const oldHydrationState = hydratingCloud;
         hydratingCloud = false;
-        await pushCloudData(true);
+        const synced = await pushCloudData(true);
         hydratingCloud = oldHydrationState;
+        if (!synced) throw new Error('Не удалось сохранить данные в облако. Проверь настройки таблицы user_data и RLS.');
+        setDataOwner(session.user.id);
       }
     } finally {
       hydratingCloud = false;
@@ -451,9 +512,7 @@
       return;
     }
     try {
-      if (!session && !localStorage.getItem('forma.guest.backup.v1')) {
-        localStorage.setItem('forma.guest.backup.v1', JSON.stringify({ savedAt: new Date().toISOString(), ...localSnapshot() }));
-      }
+      captureGuestSnapshot();
       const config = supabaseConfig();
       const redirect = new URL(window.location.href);
       redirect.hash = '';
@@ -521,6 +580,7 @@
       setAccountMessage('Чтобы включить настоящие аккаунты, создай Supabase-проект и укажи URL и publishable/anon key в supabase-config.js.', 'error');
       return;
     }
+    if (!session) captureGuestSnapshot();
     const email = $('#account-email').value.trim().toLowerCase();
     const password = $('#account-password').value;
     const submit = $('#account-submit');
@@ -560,11 +620,13 @@
       try { await supabaseAuthRequest('logout', {}, session.access_token); }
       catch (error) { console.warn('Не удалось завершить серверную сессию:', error); }
     }
+    clearTimeout(cloudTimer);
     session = null;
     localStorage.removeItem(KEYS.auth);
+    restoreGuestSnapshot();
     renderAccountUI();
     $('#account-dialog').close();
-    toast('Ты вышел(ла). Локальные данные остались в этом браузере.');
+    toast('Ты вышел(ла). Гостевые данные восстановлены; данные аккаунта остались в облаке.');
   }
   async function initializeAccount() {
     let callbackError = '';
@@ -759,6 +821,7 @@
   function setTheme(theme) {
     document.documentElement.dataset.theme = theme;
     write(KEYS.theme, theme);
+    if (session) scheduleCloudSync();
     $('#theme-toggle').textContent = theme === 'dark' ? '☀' : '☾';
     $('meta[name="theme-color"]').setAttribute('content', theme === 'dark' ? '#12151b' : '#f5f6f9');
   }
