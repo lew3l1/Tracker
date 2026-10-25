@@ -200,6 +200,7 @@
   let cloudTimer = 0;
   let cloudSyncInFlight = false;
   let cloudSyncStatus = session && session.user ? 'checking' : 'local';
+  let cloudSyncError = '';
   let accountMode = 'login';
   let assistantBusy = false;
   let assistantHistory = [];
@@ -752,6 +753,13 @@
       note.textContent = 'Создай аккаунт, чтобы хранить привычки в облаке и открывать их на других устройствах.';
       if ($('#account-message').textContent.startsWith('Настрой Supabase')) setAccountMessage('', '');
     }
+    const retryButton = $('#account-sync-retry');
+    if (retryButton) retryButton.hidden = !email || cloudSyncStatus !== 'error';
+    if (email && cloudSyncStatus === 'error') {
+      setAccountMessage('Не удалось загрузить облачные данные: ' + (cloudSyncError || 'Причина ошибки не получена.'), 'error');
+    } else if (email && cloudSyncStatus === 'synced') {
+      setAccountMessage('Аккаунт и облачное хранение работают.', 'success');
+    }
     $$('#account-form input').forEach(input => { input.disabled = !cloudConfigured(); });
     $('#account-submit').textContent = accountMode === 'login' ? 'Войти' : 'Создать аккаунт';
     $('#account-password').autocomplete = accountMode === 'login' ? 'current-password' : 'new-password';
@@ -1213,11 +1221,13 @@
         body: JSON.stringify({ user_id: session.user.id, payload, updated_at: new Date().toISOString() })
       });
       cloudSyncStatus = 'synced';
+      cloudSyncError = '';
       renderAccountUI();
       return true;
     } catch (error) {
       console.error('Ошибка облачной синхронизации Forma:', error);
       cloudSyncStatus = 'error';
+      cloudSyncError = error && error.message ? error.message : String(error);
       renderAccountUI();
       if (!silent) toast('Не удалось синхронизировать данные: ' + error.message);
       return false;
@@ -1233,6 +1243,7 @@
   async function syncAccountData() {
     if (!session || !session.user) return;
     cloudSyncStatus = 'checking';
+    cloudSyncError = '';
     renderAccountUI();
     const localBeforeSync = localSnapshot();
     const wasGuest = dataOwner === 'guest';
@@ -1274,13 +1285,14 @@
         hydratingCloud = oldHydrationState;
         if (!synced) {
           cloudSyncStatus = 'error';
-          throw new Error('Не удалось сохранить данные в облако. Проверь настройки таблицы user_data и RLS.');
+          throw new Error(cloudSyncError || 'Не удалось сохранить данные в облако. Проверь настройки таблицы user_data и RLS.');
         }
         setDataOwner(session.user.id);
         cloudSyncStatus = 'synced';
       }
     } catch (error) {
       cloudSyncStatus = 'error';
+      cloudSyncError = error && error.message ? error.message : String(error);
       throw error;
     } finally {
       hydratingCloud = false;
@@ -1479,9 +1491,9 @@
         await syncAccountData();
       } catch (error) {
         cloudSyncStatus = 'error';
+        cloudSyncError = error && error.message ? error.message : String(error);
         console.error('Не удалось восстановить облачную сессию:', error);
         renderAccountUI();
-        setAccountMessage('Не удалось загрузить облачные данные: ' + error.message, 'error');
         toast('Синхронизация не удалась. Локальные данные доступны; открой профиль для подробностей.');
       }
     }
@@ -1489,6 +1501,32 @@
   }
   async function refreshAuthSessionIfNeeded() {
     if (session && session.expires_at && session.expires_at < Math.floor(Date.now() / 1000) + 45) await refreshAuthSession();
+  }
+  async function retryCloudSync() {
+    if (!session || !session.access_token || !session.user) {
+      setAccountMessage('Войди в аккаунт заново, чтобы повторить синхронизацию.', 'error');
+      return;
+    }
+    const button = $('#account-sync-retry');
+    if (button) button.disabled = true;
+    cloudSyncStatus = 'checking';
+    cloudSyncError = '';
+    renderAccountUI();
+    try {
+      await refreshAuthSessionIfNeeded();
+      await syncAccountData();
+      toast('Облачная синхронизация выполнена.');
+    } catch (error) {
+      cloudSyncStatus = 'error';
+      cloudSyncError = error && error.message ? error.message : String(error);
+      console.error('Повторная синхронизация Forma не удалась:', error);
+      renderAccountUI();
+      toast('Синхронизация не удалась. Причина отображена в профиле.');
+    } finally {
+      const retry = $('#account-sync-retry');
+      if (retry) retry.disabled = false;
+      renderAccountUI();
+    }
   }
   function appendAssistantMessage(content, who = 'reply', extraClass = '') {
     const node = document.createElement('div');
@@ -1770,6 +1808,8 @@
   $('#account-open').addEventListener('click', () => { renderAccountUI(); $('#account-dialog').showModal(); });
   $('#account-open-side').addEventListener('click', () => { renderAccountUI(); $('#account-dialog').showModal(); });
   $('#account-close').addEventListener('click', () => $('#account-dialog').close());
+  const syncRetryButton = $('#account-sync-retry');
+  if (syncRetryButton) syncRetryButton.addEventListener('click', retryCloudSync);
   $('#account-form').addEventListener('submit', submitAccount);
   $('#friend-profile-form').addEventListener('submit', saveCommunityProfile);
   $('#friend-search-form').addEventListener('submit', searchCommunity);
