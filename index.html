@@ -18,9 +18,8 @@
 <body>
 
   <div class="loading-screen" id="loading-screen" role="status" aria-live="polite" aria-label="Загрузка Forma">
-    <div class="loading-scene" aria-hidden="true">
-      <span class="loading-bubble bubble-one"></span><span class="loading-bubble bubble-two"></span><span class="loading-bubble bubble-three"></span>
-      <svg class="loading-whale" viewBox="0 0 220 150" role="img" aria-label="Синий кит">
+    <div class="loading-mark" aria-hidden="true">
+      <svg class="loading-whale" viewBox="0 0 220 150">
         <defs>
           <linearGradient id="whale-skin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#58c7f3"/><stop offset=".55" stop-color="#258edb"/><stop offset="1" stop-color="#2465bd"/></linearGradient>
           <linearGradient id="whale-belly" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e1f7ff"/><stop offset="1" stop-color="#a7e4fa"/></linearGradient>
@@ -36,16 +35,10 @@
         <path d="M166 77 Q174 81 180 76" fill="none" stroke="#165f9f" stroke-width="2.2" stroke-linecap="round"/>
         <path d="M131 43 Q146 45 155 53" fill="none" stroke="#9ce7ff" stroke-width="2.5" stroke-linecap="round" opacity=".8"/>
         <path d="M65 58 Q75 45 89 43" fill="none" stroke="#9ce7ff" stroke-width="2.5" stroke-linecap="round" opacity=".65"/>
-        <circle cx="29" cy="30" r="4" fill="none" stroke="#7cddff" stroke-width="2"/><circle cx="183" cy="39" r="5.5" fill="none" stroke="#7cddff" stroke-width="2"/><circle cx="198" cy="64" r="2.8" fill="#7cddff"/>
       </svg>
-      <span class="loading-ripple ripple-one"></span><span class="loading-ripple ripple-two"></span>
     </div>
-    <div class="loading-wordmark">forma<span>.</span></div>
-    <p class="loading-caption" id="loading-caption">Собираем твой день в одно целое</p>
     <div class="loading-progress" aria-hidden="true"><span></span></div>
-    <span class="loading-footnote">Маленькие шаги. Большие изменения.</span>
   </div>
-
   <div class="app">
     <aside class="sidebar">
       <a class="brand" href="#today" aria-label="Forma на главную"><span class="brand-mark">✳</span><span>forma<span class="accent">.</span></span></a>
