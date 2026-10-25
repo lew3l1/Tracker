@@ -76,6 +76,7 @@
   let hydratingCloud = true;
   let cloudTimer = 0;
   let cloudSyncInFlight = false;
+  let cloudSyncStatus = session && session.user ? 'checking' : 'local';
   let accountMode = 'login';
   let assistantBusy = false;
   let assistantHistory = [];
@@ -301,13 +302,71 @@
     node.textContent = message;
     node.className = 'account-message' + (type ? ' ' + type : '');
   }
+  function renderAvatar(img, fallback, url, initial) {
+    fallback.textContent = initial || 'F';
+    fallback.hidden = false;
+    img.hidden = true;
+    img.onerror = () => {
+      img.hidden = true;
+      fallback.hidden = false;
+      img.removeAttribute('src');
+    };
+    img.onload = () => {
+      img.hidden = false;
+      fallback.hidden = true;
+    };
+    img.removeAttribute('src');
+    if (!url) return;
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'https:') return;
+      img.src = parsed.href;
+    } catch {
+      // Keep the letter avatar if the provider photo URL is not valid.
+    }
+  }
   function renderAccountUI() {
-    const email = session && session.user && session.user.email;
-    const initial = email ? email.trim().charAt(0).toUpperCase() : 'F';
-    $('#profile-avatar').textContent = initial;
-    $('#profile-title').textContent = email ? email.split('@')[0] : 'Гость';
-    $('#profile-subtitle').textContent = email ? 'Облачный аккаунт' : 'Данные в браузере';
-    $('#account-open').title = email ? 'Аккаунт: ' + email : 'Войти или создать аккаунт';
+    const user = session && session.user ? session.user : null;
+    const email = user && user.email ? user.email : '';
+    const metadata = user && user.user_metadata && typeof user.user_metadata === 'object' ? user.user_metadata : {};
+    const provider = user && user.app_metadata && user.app_metadata.provider
+      ? String(user.app_metadata.provider)
+      : user && Array.isArray(user.identities) && user.identities.some(identity => identity.provider === 'google') ? 'google' : 'email';
+    const fullName = String(metadata.full_name || metadata.name || metadata.display_name || metadata.user_name || (email ? email.split('@')[0] : 'Гость'));
+    const photo = String(metadata.avatar_url || metadata.picture || metadata.photo_url || '');
+    const initial = (fullName.trim() || email || 'F').charAt(0).toLocaleUpperCase('ru-RU');
+
+    $('#profile-title').textContent = email ? fullName : 'Гость';
+    $('#profile-subtitle').textContent = email ? (cloudSyncStatus === 'synced' ? 'Синхронизировано' : cloudSyncStatus === 'error' ? 'Ошибка синхронизации' : cloudSyncStatus === 'checking' ? 'Проверяем облако…' : 'Аккаунт подключён') : 'Данные в браузере';
+    renderAvatar($('#profile-avatar-img'), $('#profile-avatar-initial'), photo, initial);
+    renderAvatar($('#account-button-avatar'), $('#account-button-fallback'), photo, initial);
+    renderAvatar($('#account-avatar-img'), $('#account-avatar-initial'), photo, initial);
+
+    $('#account-open').title = email ? 'Аккаунт: ' + fullName : 'Войти или создать аккаунт';
+    $('#account-profile').hidden = !email;
+    $('#account-profile-name').textContent = fullName;
+    $('#account-profile-email').textContent = email;
+    $('#account-profile-provider').textContent = provider === 'google' ? 'Google · Подключён' : provider === 'email' ? 'Email · Подключён' : provider + ' · Подключён';
+    $('#account-profile-status').textContent = 'Авторизация активна';
+    const syncNode = $('#account-sync-status');
+    syncNode.classList.remove('sync-error', 'sync-ok', 'sync-pending');
+    if (!email || !cloudConfigured()) {
+      syncNode.textContent = 'Только в этом браузере';
+    } else if (cloudSyncStatus === 'synced') {
+      syncNode.textContent = 'Синхронизировано';
+      syncNode.classList.add('sync-ok');
+    } else if (cloudSyncStatus === 'error') {
+      syncNode.textContent = 'Требуется проверка';
+      syncNode.classList.add('sync-error');
+    } else {
+      syncNode.textContent = 'Проверяем подключение…';
+      syncNode.classList.add('sync-pending');
+    }
+    const createdAt = user && user.created_at ? new Date(user.created_at) : null;
+    $('#account-profile-created').textContent = createdAt && !Number.isNaN(createdAt.getTime())
+      ? createdAt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+      : 'Не указана';
+
     $('#account-logout').hidden = !email;
     $('#account-form').hidden = Boolean(email);
     $('.account-tabs').hidden = Boolean(email);
@@ -318,21 +377,24 @@
     $('#google-signin').disabled = !cloudConfigured();
     const note = $('#account-cloud-note');
     if (!cloudConfigured()) {
-      note.textContent = 'Облачный аккаунт ещё не настроен. Пока Forma хранит данные только в этом браузере. Для Google-входа подключи Supabase и включи Google Provider по инструкции в README.';
+      note.textContent = 'Облачное хранилище ещё не настроено. Пока Forma хранит данные только в этом браузере.';
       setAccountMessage('Настрой Supabase, чтобы включить регистрацию и синхронизацию.', '');
     } else if (email) {
-      note.textContent = 'Ты вошёл(ла) как ' + email + '. Привычки и дневник синхронизируются с личной строкой в базе данных.';
-      setAccountMessage('Аккаунт подключён.', 'success');
+      note.textContent = cloudSyncStatus === 'synced'
+        ? 'Аккаунт подключён. Привычки, отметки и дневник синхронизированы с облачным хранилищем.'
+        : cloudSyncStatus === 'error'
+          ? 'Google-вход выполнен, но облачные данные не удалось подтвердить. Проверь таблицу user_data и её RLS-политики.'
+          : 'Аккаунт подключён. Проверяем доступ к личному облачному хранилищу.';
+      setAccountMessage(cloudSyncStatus === 'synced' ? 'Аккаунт и облачное хранение работают.' : 'Google авторизация активна.', cloudSyncStatus === 'synced' ? 'success' : '');
     } else {
       note.textContent = 'Создай аккаунт, чтобы хранить привычки в облаке и открывать их на других устройствах.';
       if ($('#account-message').textContent.startsWith('Настрой Supabase')) setAccountMessage('', '');
     }
-    $$('#account-form input').forEach(input => { input.disabled = !cloudConfigured(); });
+    $('#account-form input').forEach(input => { input.disabled = !cloudConfigured(); });
     $('#account-submit').textContent = accountMode === 'login' ? 'Войти' : 'Создать аккаунт';
     $('#account-password').autocomplete = accountMode === 'login' ? 'current-password' : 'new-password';
-    $$('#account-dialog [data-account-mode]').forEach(button => button.classList.toggle('active', button.dataset.accountMode === accountMode));
-  }
-  function setAccountMode(mode) {
+    $('#account-dialog [data-account-mode]').forEach(button => button.classList.toggle('active', button.dataset.accountMode === accountMode));
+  }  function setAccountMode(mode) {
     accountMode = mode === 'signup' ? 'signup' : 'login';
     setAccountMessage('', '');
     renderAccountUI();
@@ -444,11 +506,13 @@
         headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
         body: JSON.stringify({ user_id: session.user.id, payload, updated_at: new Date().toISOString() })
       });
-      if (!silent) $('#profile-subtitle').textContent = 'Синхронизировано';
+      cloudSyncStatus = 'synced';
+      renderAccountUI();
       return true;
     } catch (error) {
       console.error('Ошибка облачной синхронизации Forma:', error);
-      $('#profile-subtitle').textContent = 'Нет синхронизации';
+      cloudSyncStatus = 'error';
+      renderAccountUI();
       if (!silent) toast('Не удалось синхронизировать данные: ' + error.message);
       return false;
     } finally {
@@ -462,6 +526,8 @@
   }
   async function syncAccountData() {
     if (!session || !session.user) return;
+    cloudSyncStatus = 'checking';
+    renderAccountUI();
     const localBeforeSync = localSnapshot();
     const wasGuest = dataOwner === 'guest';
     try {
@@ -480,9 +546,10 @@
         write(KEYS.habits, habits); write(KEYS.logs, logs); write(KEYS.journal, journal);
         if (remote.theme === 'light' || remote.theme === 'dark') setTheme(remote.theme);
         setDataOwner(session.user.id);
+        cloudSyncStatus = 'synced';
         hydratingCloud = false;
         renderAll();
-        $('#profile-subtitle').textContent = 'Синхронизировано';
+        renderAccountUI();
       } else {
         // A brand-new account receives the current guest data once; an existing account
         // never imports another profile's local cache implicitly.
@@ -496,9 +563,16 @@
         hydratingCloud = false;
         const synced = await pushCloudData(true);
         hydratingCloud = oldHydrationState;
-        if (!synced) throw new Error('Не удалось сохранить данные в облако. Проверь настройки таблицы user_data и RLS.');
+        if (!synced) {
+          cloudSyncStatus = 'error';
+          throw new Error('Не удалось сохранить данные в облако. Проверь настройки таблицы user_data и RLS.');
+        }
         setDataOwner(session.user.id);
+        cloudSyncStatus = 'synced';
       }
+    } catch (error) {
+      cloudSyncStatus = 'error';
+      throw error;
     } finally {
       hydratingCloud = false;
       renderAll();
@@ -670,6 +744,7 @@
     clearTimeout(cloudTimer);
     session = null;
     localStorage.removeItem(KEYS.auth);
+    cloudSyncStatus = 'local';
     restoreGuestSnapshot();
     renderAccountUI();
     $('#account-dialog').close();
@@ -757,7 +832,15 @@
         })
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || data.message || (response.status === 404 ? 'Функция ИИ ещё не развёрнута. Следуй разделу AI в README.' : 'Сервис ИИ ответил ошибкой (' + response.status + ').'));
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Функция ai-assistant не найдена в Supabase. Код в GitHub ещё нужно развернуть: см. README → «Развёртывание ИИ».');
+        }
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('Supabase отклонил запрос ИИ (' + response.status + '). Проверь, что ты вошёл(ла) в аккаунт и функция развёрнута с проверкой авторизации.');
+        }
+        throw new Error(data.error || data.message || 'Сервис ИИ ответил ошибкой (' + response.status + ').');
+      }
       const answer = String(data.reply || data.answer || '').trim();
       if (!answer) throw new Error('ИИ вернул пустой ответ. Проверь настройки серверной функции.');
       typing.remove();
@@ -768,7 +851,11 @@
     } catch (error) {
       console.error('Ошибка ИИ-помощника Forma:', error);
       typing.remove();
-      appendAssistantMessage(error.message || 'Не удалось получить ответ. Попробуй ещё раз.', 'reply', 'assistant-error');
+      let message = error && error.message ? error.message : 'Не удалось получить ответ. Попробуй ещё раз.';
+      if (error instanceof TypeError && /fetch/i.test(message)) {
+        message = 'Браузер не смог подключиться к функции ai-assistant. Обычно это значит, что Edge Function ещё не развёрнута в Supabase или запрос остановил CORS. Проверь Supabase → Edge Functions → ai-assistant → Invocations / Logs, затем разверни функцию из supabase/functions/ai-assistant/index.ts и добавь серверный секрет OPENAI_API_KEY. См. README → «Развёртывание ИИ».';
+      }
+      appendAssistantMessage(message, 'reply', 'assistant-error');
       $('#assistant-status').textContent = 'Нужно проверить подключение';
     } finally {
       assistantBusy = false;
