@@ -71,6 +71,7 @@
       match = core.match(/^(\d+) привычек$/); if (match) return lead + match[1] + ' habits' + trail;
       match = core.match(/^(\d+)% · (\d+) привычек$/); if (match) return lead + match[1] + '% · ' + match[2] + ' habits' + trail;
       match = core.match(/^(\d+) выполнено сегодня ✓$/); if (match) return lead + match[1] + ' completed today ✓' + trail;
+      match = core.match(/^Ежедневные отметки привычек за (\d+) дней?$/); if (match) return lead + 'Daily habit check-ins over ' + match[1] + (match[1] === '1' ? ' day' : ' days') + trail;
       const hintSuffix = ' · Уже выполнено сегодня — отличная работа.';
       if (core.endsWith(hintSuffix)) return lead + translateValue(core.slice(0, -hintSuffix.length)) + ' · Already completed today — great work.' + trail;
       for (const [ru, en] of Object.entries(TRANSLATIONS)) {
@@ -83,6 +84,7 @@
       match = core.match(/^(\d+) habits$/); if (match) return lead + match[1] + ' привычек' + trail;
       match = core.match(/^(\d+)% · (\d+) habits$/); if (match) return lead + match[1] + '% · ' + match[2] + ' привычек' + trail;
       match = core.match(/^(\d+) completed today ✓$/); if (match) return lead + match[1] + ' выполнено сегодня ✓' + trail;
+      match = core.match(/^Daily habit check-ins over (\d+) days?$/); if (match) return lead + 'Ежедневные отметки привычек за ' + match[1] + ' дней' + trail;
       const englishHintSuffix = ' · Already completed today — great work.';
       if (core.endsWith(englishHintSuffix)) return lead + translateValue(core.slice(0, -englishHintSuffix.length)) + ' · Уже выполнено сегодня — отличная работа.' + trail;
       for (const [en, ru] of Object.entries(TRANSLATIONS_REVERSE)) {
@@ -94,6 +96,13 @@
     if (language === 'en') {
       const removeConfirm = core.match(/^Удалить привычку «(.+)»\? История её отметок тоже будет удалена\.$/);
       if (removeConfirm) return lead + 'Delete the habit “' + removeConfirm[1] + '”? Its check-in history will also be deleted.' + trail;
+    }
+    const separator = ' · ';
+    const pieces = core.split(separator);
+    if (pieces.length === 2) {
+      const left = translateValue(pieces[0]);
+      const right = translateValue(pieces[1]);
+      if (left !== pieces[0] || right !== pieces[1]) return lead + left + separator + right + trail;
     }
     return raw;
   }
