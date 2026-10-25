@@ -1,0 +1,17 @@
+# Supabase local development secrets
+.env
+.env.*
+!.env.example
+supabase/.env
+supabase/.env.*
+supabase/.branches
+supabase/.temp/
+
+# Local editor and OS artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Node tools (if introduced for local development)
+node_modules/
