@@ -378,10 +378,10 @@
     if (!face) return;
     $('#focus-timer-display').textContent = formatFocusTime(focusRemaining);
     face.style.setProperty('--timer-progress', Math.max(0, Math.min(100, focusRemaining / Math.max(focusDuration, 1) * 100)) + '%');
-    face.setAttribute('aria-label', 'Осталось ' + formatFocusTime(focusRemaining));
-    $('#focus-timer-caption').textContent = focusMode === 'focus' ? 'Пора сосредоточиться' : 'Время немного отдохнуть';
-    $('#focus-toggle').textContent = focusRunning ? 'Ⅱ Пауза' : (focusRemaining > 0 && focusRemaining < focusDuration ? '▶ Продолжить' : '▶ Начать фокус');
-    $('#focus-session-status').textContent = focusRunning ? (focusMode === 'focus' ? 'Идёт сессия фокусировки. Не отвлекайся на лишнее.' : 'Идёт время отдыха. Перезарядись без спешки.') : focusStatusMessage;
+    face.setAttribute('aria-label', (language === 'en' ? 'Time remaining ' : 'Осталось ') + formatFocusTime(focusRemaining));
+    $('#focus-timer-caption').textContent = translateValue(focusMode === 'focus' ? 'Пора сосредоточиться' : 'Время немного отдохнуть');
+    $('#focus-toggle').textContent = translateValue(focusRunning ? 'Ⅱ Пауза' : (focusRemaining > 0 && focusRemaining < focusDuration ? '▶ Продолжить' : '▶ Начать фокус'));
+    $('#focus-session-status').textContent = translateValue(focusRunning ? (focusMode === 'focus' ? 'Идёт сессия фокусировки. Не отвлекайся на лишнее.' : 'Идёт время отдыха. Перезарядись без спешки.') : focusStatusMessage);
     $$('[data-focus-mode]').forEach(button => button.classList.toggle('active', button.dataset.focusMode === focusMode));
   }
   function renderFocus() {
@@ -418,6 +418,7 @@
       return '<div class="reminder-row ' + (enabled ? 'enabled' : '') + '"><span class="reminder-emoji">' + escapeHtml(habit.emoji) + '</span><div class="reminder-info"><strong>' + escapeHtml(habit.name) + '</strong><small>' + (done ? 'Выполнено сегодня ✓' : enabled ? 'Напомним сегодня, если ещё не отмечено' : escapeHtml(habit.category)) + '</small></div><input class="input reminder-time" type="time" value="' + time + '" data-reminder-time="' + escapeHtml(habit.id) + '" aria-label="Время напоминания для ' + escapeHtml(habit.name) + '"><input class="reminder-switch" type="checkbox" role="switch" data-reminder-toggle="' + escapeHtml(habit.id) + '" aria-label="Включить напоминание для ' + escapeHtml(habit.name) + '" ' + (enabled ? 'checked' : '') + '></div>';
     }).join('') : '<div class="empty-state"><strong>Пока нет привычек</strong>Создай привычку, и здесь можно будет настроить напоминание.</div>';
     renderFocusTimer();
+    applyLanguage();
   }
   function setFocusMode(mode) {
     if (!Object.prototype.hasOwnProperty.call(focusDurations, mode)) return;
@@ -468,7 +469,7 @@
       toast(focusStatusMessage);
       if ('Notification' in window && Notification.permission === 'granted') {
         try {
-          new Notification('Forma · время вышло', { body: focusStatusMessage, icon: 'favicon.svg', tag: 'forma-focus-timer' });
+          new Notification(translateValue('Forma · время вышло'), { body: translateValue(focusStatusMessage), icon: 'favicon.svg', tag: 'forma-focus-timer' });
         } catch (error) { console.warn('Не удалось показать уведомление таймера:', error); }
       }
     }
@@ -553,8 +554,8 @@
       setting.lastNotifiedDate = today;
       changed = true;
       try {
-        const notification = new Notification('Forma · время для привычки', {
-          body: habit.emoji + ' ' + habit.name + ' — найди пару минут для себя.',
+        const notification = new Notification(translateValue('Forma · время для привычки'), {
+          body: language === 'en' ? habit.emoji + ' ' + habit.name + ' — take a few minutes for yourself.' : habit.emoji + ' ' + habit.name + ' — найди пару минут для себя.',
           icon: 'favicon.svg',
           tag: 'forma-reminder-' + habit.id
         });
@@ -1089,7 +1090,7 @@
   function appendAssistantMessage(content, who = 'reply', extraClass = '') {
     const node = document.createElement('div');
     node.className = 'assistant-message ' + (who === 'user' ? 'assistant-user' : 'assistant-reply') + (extraClass ? ' ' + extraClass : '');
-    node.textContent = content;
+    node.textContent = who === 'user' ? content : translateValue(content);
     $('#assistant-messages').appendChild(node);
     $('#assistant-messages').scrollTop = $('#assistant-messages').scrollHeight;
     return node;
@@ -1120,7 +1121,7 @@
     const config = supabaseConfig();
     assistantBusy = true;
     $('#assistant-send').disabled = true;
-    $('#assistant-status').textContent = 'Думаю…';
+    $('#assistant-status').textContent = translateValue('Думаю…');
     const typing = appendAssistantMessage('Секунду, подбираю ответ…', 'reply', 'assistant-typing');
     try {
       await ensureFreshSession();
@@ -1153,7 +1154,7 @@
       assistantHistory.push({ role: 'assistant', content: answer });
       assistantHistory = assistantHistory.slice(-12);
       appendAssistantMessage(answer, 'reply');
-      $('#assistant-status').textContent = 'Готов помочь';
+      $('#assistant-status').textContent = translateValue('Готов помочь');
     } catch (error) {
       console.error('Ошибка ИИ-помощника Forma:', error);
       typing.remove();
@@ -1162,7 +1163,7 @@
         message = 'Браузер не смог подключиться к функции ai-assistant. Обычно это значит, что Edge Function ещё не развёрнута в Supabase или запрос остановил CORS. Проверь Supabase → Edge Functions → ai-assistant → Invocations / Logs, затем разверни функцию из supabase/functions/ai-assistant/index.ts и добавь серверный секрет OPENAI_API_KEY. См. README → «Развёртывание ИИ».';
       }
       appendAssistantMessage(message, 'reply', 'assistant-error');
-      $('#assistant-status').textContent = 'Нужно проверить подключение';
+      $('#assistant-status').textContent = translateValue('Нужно проверить подключение');
     } finally {
       assistantBusy = false;
       $('#assistant-send').disabled = false;
@@ -1187,6 +1188,7 @@
     $('#habit-category').value = habit ? habit.category : 'Здоровье';
     $('#habit-emoji').value = habit ? habit.emoji : '✨';
     $('#habit-dialog').showModal();
+    applyLanguage();
     setTimeout(() => $('#habit-name').focus(), 40);
   }
   function closeHabitDialog() { $('#habit-dialog').close(); }
@@ -1205,7 +1207,7 @@
   }
   function deleteHabit(id) {
     const habit = habits.find(h => h.id === id);
-    if (!habit || !window.confirm('Удалить привычку «' + habit.name + '»? История её отметок тоже будет удалена.')) return;
+    if (!habit || !window.confirm(translateValue('Удалить привычку «' + habit.name + '»? История её отметок тоже будет удалена.'))) return;
     habits = habits.filter(h => h.id !== id);
     if (reminders[id]) { delete reminders[id]; write(KEYS.reminders, reminders); }
     Object.keys(logs).forEach(day => {
@@ -1225,7 +1227,7 @@
     if (!text.trim() && !mood) delete journal[selectedDate];
     else journal[selectedDate] = { text, mood, updatedAt: new Date().toISOString() };
     write(KEYS.journal, journal);
-    $('#save-state').textContent = '● Сохранено';
+    $('#save-state').textContent = translateValue('● Сохранено');
     $('#journal-count').textContent = Object.values(journal).filter(item => item.text && item.text.trim()).length;
   }
   function exportData() {
@@ -1244,7 +1246,7 @@
     try {
       const payload = JSON.parse(await file.text());
       if (payload.schema !== 'forma-backup-v1' || !Array.isArray(payload.habits) || typeof payload.logs !== 'object' || typeof payload.journal !== 'object') throw new Error('Неверный формат');
-      if (!window.confirm('Импорт заменит текущие привычки, отметки и дневник. Продолжить?')) return;
+      if (!window.confirm(translateValue('Импорт заменит текущие привычки, отметки и дневник. Продолжить?'))) return;
       habits = payload.habits;
       logs = payload.logs || {};
       journal = payload.journal || {};
