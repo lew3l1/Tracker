@@ -384,3 +384,7 @@
   .community-profile-panel,.community-search-panel,.community-requests-panel,.community-outgoing-panel,.community-friends-panel{padding:16px}
   .community-grid{gap:12px}
 }
+
+.community-head-actions{display:flex;align-items:center;gap:8px}
+.community-refresh{flex:none;font-size:18px}
+.community-refresh:disabled{opacity:.5;cursor:wait}
