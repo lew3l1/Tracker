@@ -48,6 +48,16 @@ create index if not exists friend_requests_recipient_idx
 create index if not exists friend_requests_sender_idx
   on public.friend_requests (sender_id, created_at desc);
 
+create table if not exists public.friendships (
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  friend_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint friendships_not_self check (user_id <> friend_id),
+  primary key (user_id, friend_id)
+);
+
+create index if not exists friendships_friend_id_idx on public.friendships (friend_id, user_id);
+
 alter table public.friend_requests enable row level security;
 revoke all on table public.friend_requests from anon, authenticated;
 grant select, insert, delete on table public.friend_requests to authenticated;
@@ -63,6 +73,10 @@ create policy "Users can send friend requests as themselves"
   with check (
     (select auth.uid()) = sender_id
     and recipient_id <> (select auth.uid())
+    and not exists (
+      select 1 from public.friendships f
+      where f.user_id = (select auth.uid()) and f.friend_id = recipient_id
+    )
   );
 
 drop policy if exists "Request participants can cancel or decline" on public.friend_requests;
@@ -70,15 +84,6 @@ create policy "Request participants can cancel or decline"
   on public.friend_requests for delete to authenticated
   using ((select auth.uid()) = sender_id or (select auth.uid()) = recipient_id);
 
-create table if not exists public.friendships (
-  user_id uuid not null references public.profiles (id) on delete cascade,
-  friend_id uuid not null references public.profiles (id) on delete cascade,
-  created_at timestamptz not null default now(),
-  constraint friendships_not_self check (user_id <> friend_id),
-  primary key (user_id, friend_id)
-);
-
-create index if not exists friendships_friend_id_idx on public.friendships (friend_id, user_id);
 
 alter table public.friendships enable row level security;
 revoke all on table public.friendships from anon, authenticated;
@@ -94,7 +99,7 @@ create or replace function public.handle_new_forma_profile()
 returns trigger
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = ''
 as $$
 declare
   v_name text;
@@ -187,7 +192,7 @@ create or replace function public.accept_friend_request(p_request_id uuid)
 returns void
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = ''
 as $$
 declare
   v_uid uuid := auth.uid();
@@ -214,7 +219,7 @@ create or replace function public.remove_friend(p_friend_id uuid)
 returns void
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = ''
 as $$
 declare
   v_uid uuid := auth.uid();
@@ -247,7 +252,7 @@ returns table (
 language plpgsql
 stable
 security definer
-set search_path = public, pg_temp
+set search_path = ''
 as $$
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
