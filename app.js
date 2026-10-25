@@ -309,9 +309,10 @@
     $('#account-open').title = email ? 'Аккаунт: ' + email : 'Войти или создать аккаунт';
     $('#account-logout').hidden = !email;
     $('#account-submit').disabled = !cloudConfigured();
+    $('#google-signin').disabled = !cloudConfigured();
     const note = $('#account-cloud-note');
     if (!cloudConfigured()) {
-      note.textContent = 'Облачный аккаунт ещё не настроен. Пока Forma хранит данные только в этом браузере. Для регистрации подключи Supabase в supabase-config.js и выполни SQL из supabase/migrations.';
+      note.textContent = 'Облачный аккаунт ещё не настроен. Пока Forma хранит данные только в этом браузере. Для Google-входа подключи Supabase и включи Google Provider по инструкции в README.';
       setAccountMessage('Настрой Supabase, чтобы включить регистрацию и синхронизацию.', '');
     } else if (email) {
       note.textContent = 'Ты вошёл(ла) как ' + email + '. Привычки и дневник синхронизируются с личной строкой в базе данных.';
@@ -443,6 +444,77 @@
       renderAccountUI();
     }
   }
+
+  function startGoogleSignIn() {
+    if (!cloudConfigured()) {
+      setAccountMessage('Сначала настрой Supabase: добавь URL и anon/publishable key в supabase-config.js. Затем включи Google в Authentication → Sign In / Providers.', 'error');
+      return;
+    }
+    try {
+      if (!session && !localStorage.getItem('forma.guest.backup.v1')) {
+        localStorage.setItem('forma.guest.backup.v1', JSON.stringify({ savedAt: new Date().toISOString(), ...localSnapshot() }));
+      }
+      const config = supabaseConfig();
+      const redirect = new URL(window.location.href);
+      redirect.hash = '';
+      const authorize = new URL(config.url + '/auth/v1/authorize');
+      authorize.searchParams.set('provider', 'google');
+      authorize.searchParams.set('redirect_to', redirect.toString());
+      authorize.searchParams.set('scopes', 'openid email profile');
+      // OAuth navigation cannot attach request headers, so pass only the public Supabase key.
+      authorize.searchParams.set('apikey', config.key);
+      $('#google-signin').disabled = true;
+      $('#google-signin').textContent = 'Переходим к Google…';
+      window.location.assign(authorize.toString());
+    } catch (error) {
+      console.error('Не удалось запустить Google-вход Forma:', error);
+      setAccountMessage(error.message || 'Не удалось начать вход через Google.', 'error');
+      renderAccountUI();
+    }
+  }
+
+  async function consumeGoogleCallback() {
+    const rawHash = window.location.hash.replace(/^#/, '');
+    if (!rawHash) return '';
+    const params = new URLSearchParams(rawHash);
+    const tokenPresent = params.has('access_token') || params.has('refresh_token');
+    const errorText = params.get('error_description') || params.get('error');
+    if (!tokenPresent && !errorText) return '';
+
+    // Strip access and refresh tokens from the address bar as soon as we read them.
+    const clean = new URL(window.location.href);
+    clean.hash = '';
+    ['access_token', 'refresh_token', 'expires_in', 'expires_at', 'token_type', 'provider', 'provider_token', 'error', 'error_description', 'error_code'].forEach(key => clean.searchParams.delete(key));
+    window.history.replaceState({}, document.title, clean.pathname + clean.search);
+
+    if (errorText) throw new Error('Google-вход не завершён: ' + errorText.replace(/\+/g, ' '));
+    if (!cloudConfigured()) throw new Error('Supabase не настроен. Заполни supabase-config.js и повтори вход.');
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    if (!accessToken || !refreshToken) throw new Error('Google вернул неполную сессию. Попробуй войти ещё раз.');
+
+    const config = supabaseConfig();
+    const response = await fetch(config.url + '/auth/v1/user', {
+      headers: { apikey: config.key, Authorization: 'Bearer ' + accessToken }
+    });
+    const user = await response.json().catch(() => ({}));
+    if (!response.ok || !user.id) {
+      console.error('Не удалось получить Google-пользователя из Supabase:', response.status, user);
+      throw new Error('Google подтвердил вход, но Forma не смогла загрузить профиль. Проверь настройки Supabase и попробуй снова.');
+    }
+
+    const sessionData = {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      token_type: params.get('token_type') || 'bearer',
+      expires_in: Number(params.get('expires_in') || 3600),
+      user
+    };
+    if (!keepSession(sessionData)) throw new Error('Не удалось сохранить сессию Google. Попробуй ещё раз.');
+    toast('Вход через Google выполнен');
+    return '';
+  }
+
   async function submitAccount(event) {
     event.preventDefault();
     if (!cloudConfigured()) {
@@ -495,7 +567,18 @@
     toast('Ты вышел(ла). Локальные данные остались в этом браузере.');
   }
   async function initializeAccount() {
+    let callbackError = '';
+    try {
+      await consumeGoogleCallback();
+    } catch (error) {
+      callbackError = error.message || 'Не удалось завершить вход через Google.';
+      console.error('Ошибка callback Google в Forma:', error);
+    }
     renderAccountUI();
+    if (callbackError) {
+      $('#account-dialog').showModal();
+      setAccountMessage(callbackError, 'error');
+    }
     if (!cloudConfigured()) { hydratingCloud = false; return; }
     if (session && session.access_token) {
       try {
@@ -504,6 +587,8 @@
       } catch (error) {
         console.error('Не удалось восстановить облачную сессию:', error);
         $('#profile-subtitle').textContent = 'Войди снова';
+        $('#account-dialog').showModal();
+        setAccountMessage('Не удалось загрузить облачные данные: ' + error.message, 'error');
       }
     }
     hydratingCloud = false;
@@ -754,6 +839,7 @@
   $('#account-open-side').addEventListener('click', () => { renderAccountUI(); $('#account-dialog').showModal(); });
   $('#account-close').addEventListener('click', () => $('#account-dialog').close());
   $('#account-form').addEventListener('submit', submitAccount);
+  $('#google-signin').addEventListener('click', startGoogleSignIn);
   $('#account-logout').addEventListener('click', signOutAccount);
 
   $('#assistant-fab').addEventListener('click', () => {
