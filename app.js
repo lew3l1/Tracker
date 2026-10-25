@@ -262,7 +262,7 @@
     const entry = journal[selectedDate] || {};
     $('#journal-date-label').textContent = fmt(selectedDate, { weekday: 'long', day: 'numeric', month: 'long' });
     $('#journal-entry').value = entry.text || '';
-    $('#moods button').forEach(button => button.classList.toggle('active', button.dataset.mood === entry.mood));
+    $$('#moods button').forEach(button => button.classList.toggle('active', button.dataset.mood === entry.mood));
     $('#journal-count').textContent = Object.values(journal).filter(item => item.text && item.text.trim()).length;
     $('#journal-done').textContent = doneCount();
     $('#save-state').textContent = '● Сохранено локально';
@@ -279,8 +279,8 @@
     renderAccountUI();
     $('#go-today').disabled = selectedDate === todayKey();
     $('#journal-today').disabled = selectedDate === todayKey();
-    $('[data-range]').forEach(button => button.classList.toggle('active', Number(button.dataset.range) === insightRange));
-    $('#today-filters [data-category]').forEach(button => button.classList.toggle('active', button.dataset.category === activeFilter));
+    $$('[data-range]').forEach(button => button.classList.toggle('active', Number(button.dataset.range) === insightRange));
+    $$('#today-filters [data-category]').forEach(button => button.classList.toggle('active', button.dataset.category === activeFilter));
   }
 
   function supabaseConfig() {
