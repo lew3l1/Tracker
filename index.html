@@ -5,8 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f5f6fa">
   <meta name="description" content="Forma — персональный трекер привычек, целей и ежедневной рефлексии.">
+  <meta name="color-scheme" content="light dark">
   <title>Forma — Habit Tracker</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="favicon.svg">
+  <link rel="manifest" href="site.webmanifest">
   <link rel="stylesheet" href="styles.css">
+  <script src="supabase-config.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -15,17 +20,22 @@
       <a class="brand" href="#today" aria-label="Forma на главную"><span class="brand-mark">✳</span><span>forma<span class="accent">.</span></span></a>
       <p class="side-label">ЛИЧНОЕ ПРОСТРАНСТВО</p>
       <nav class="nav" aria-label="Главная навигация">
-        <button class="nav-link active" data-view="today"><span>◷</span> Мой день <small id="nav-progress">0/0</small></button>
-        <button class="nav-link" data-view="habits"><span>☷</span> Привычки</button>
-        <button class="nav-link" data-view="insights"><span>▥</span> Моя динамика</button>
-        <button class="nav-link" data-view="journal"><span>✎</span> Дневник</button>
+        <button class="nav-link active" data-view="today"><span class="nav-icon">◷</span><span class="nav-text">Мой день</span><small id="nav-progress">0/0</small></button>
+        <button class="nav-link" data-view="habits"><span class="nav-icon">☷</span><span class="nav-text">Привычки</span></button>
+        <button class="nav-link" data-view="table"><span class="nav-icon">▦</span><span class="nav-text">Таблица</span></button>
+        <button class="nav-link" data-view="insights"><span class="nav-icon">▥</span><span class="nav-text">Динамика</span></button>
+        <button class="nav-link" data-view="journal"><span class="nav-icon">✎</span><span class="nav-text">Дневник</span></button>
       </nav>
       <div class="focus-card"><span class="spark">✦</span><p class="focus-title">Маленькие шаги.</p><p class="muted">Большие изменения начинаются с того, что ты делаешь сегодня.</p><div class="progress-track"><span id="side-progress"></span></div><div class="between tiny"><span>Прогресс дня</span><strong id="side-percent">0%</strong></div></div>
-      <div class="sidebar-bottom"><div class="avatar">F</div><div><strong>Твой путь</strong><small>Личное развитие</small></div><button class="icon-btn" id="backup-btn" title="Экспортировать данные" aria-label="Экспортировать данные">⇩</button><button class="icon-btn" id="restore-btn" title="Восстановить из JSON" aria-label="Восстановить из JSON">⇧</button><input id="restore-file" type="file" accept="application/json" hidden></div>
+      <div class="sidebar-bottom">
+        <button class="profile-account" id="account-open-side" type="button" aria-label="Настройки аккаунта"><span class="avatar" id="profile-avatar">F</span><span class="profile-copy"><strong id="profile-title">Гость</strong><small id="profile-subtitle">Данные в браузере</small></span></button>
+        <div class="sidebar-tools"><button class="icon-btn" id="backup-btn" title="Экспортировать данные" aria-label="Экспортировать данные">⇩</button><button class="icon-btn" id="restore-btn" title="Восстановить из JSON" aria-label="Восстановить из JSON">⇧</button></div>
+        <input id="restore-file" type="file" accept="application/json" hidden>
+      </div>
     </aside>
 
     <main class="main">
-      <header class="topbar"><div class="breadcrumb">FORMA <span>/</span> <strong id="crumb">Мой день</strong></div><div class="top-actions"><span class="date-pill" id="top-date"></span><button class="theme-btn" id="theme-toggle" title="Сменить тему" aria-label="Сменить тему">☾</button></div></header>
+      <header class="topbar"><div class="breadcrumb">FORMA <span>/</span> <strong id="crumb">Мой день</strong></div><div class="top-actions"><span class="date-pill" id="top-date"></span><button class="theme-btn" id="theme-toggle" title="Сменить тему" aria-label="Сменить тему">☾</button><button class="account-btn" id="account-open" title="Войти или создать аккаунт" aria-label="Аккаунт">♙</button></div></header>
 
       <section class="view active" id="view-today">
         <div class="page-head"><div><p class="eyebrow" id="today-eyebrow"></p><h1>С возвращением<span class="accent">.</span></h1><p class="subtitle">Не нужно быть идеальным. Достаточно двигаться вперёд.</p></div><div class="date-nav"><button class="icon-btn" id="prev-day" aria-label="Предыдущий день">←</button><button class="btn subtle" id="go-today">Сегодня</button><button class="icon-btn" id="next-day" aria-label="Следующий день">→</button></div></div>
@@ -36,6 +46,13 @@
         <div class="metric-grid"><article class="card metric"><div class="between"><span class="metric-label">ТЕКУЩАЯ СЕРИЯ</span><span class="metric-icon orange">♨</span></div><p class="metric-value"><strong id="streak-number">0</strong> <span>дней</span></p><p class="metric-foot">Каждый день — новый шанс</p></article><article class="card metric"><div class="between"><span class="metric-label">ЗА 7 ДНЕЙ</span><span class="metric-icon violet">↗</span></div><p class="metric-value"><strong id="week-rate">0%</strong></p><p class="metric-foot">Среднее выполнение</p></article><article class="card metric"><div class="between"><span class="metric-label">В ФОКУСЕ</span><span class="metric-icon blue">✳</span></div><p class="metric-value"><strong id="active-count">0</strong> <span>привычек</span></p><p class="metric-foot">Твой личный набор</p></article></div>
         <div class="content-grid"><section class="card panel"><div class="section-head"><div><p class="eyebrow">ПО ШАГАМ</p><h2>Привычки на день</h2><p class="muted">Регулярность важнее идеального результата.</p></div><button class="text-btn" data-open="habits">Все привычки ↗</button></div><div class="filters" id="today-filters"><button class="filter active" data-category="Все">Все</button><button class="filter" data-category="Здоровье">Здоровье</button><button class="filter" data-category="Развитие">Развитие</button><button class="filter" data-category="Фокус">Фокус</button><button class="filter" data-category="Осознанность">Осознанность</button></div><div id="today-list" class="habit-list"></div><button class="add-row" id="add-from-today">＋ <span>Добавить привычку</span><b>→</b></button></section><section class="card panel"><div class="section-head"><div><p class="eyebrow">ПОСЛЕДНИЕ 7 ДНЕЙ</p><h2>Твоя неделя</h2></div><button class="icon-btn" data-open="insights" aria-label="Подробная статистика">↗</button></div><p class="muted">Каждый столбец — твой вклад в себя.</p><div class="week-chart" id="week-chart"></div><div class="chart-legend"><span><i class="dot done-dot"></i> Выполнено</span><span><i class="dot rest-dot"></i> Осталось</span></div><div class="week-summary"><div><small>ЛУЧШИЙ ДЕНЬ</small><strong id="best-day">—</strong></div><div><small>В СРЕДНЕМ</small><strong id="week-average">0%</strong></div></div></section></div>
         <div class="bottom-note"><span>✦</span><p><strong>Помни:</strong> пропущенный день — не провал. Это просто повод начать снова.</p><button class="text-btn" data-open="journal">Записать мысль ↗</button></div>
+      </section>
+
+
+      <section class="view" id="view-table" hidden>
+        <div class="page-head"><div><p class="eyebrow">ОБЗОР ПО ДНЯМ</p><h1>Таблица привычек<span class="accent">.</span></h1><p class="subtitle">Отмечай выполнение прямо в таблице и следи за своей регулярностью.</p></div><div class="table-actions"><label class="sr-only" for="matrix-range">Период таблицы</label><select class="select" id="matrix-range"><option value="7">Последние 7 дней</option><option value="14">Последние 14 дней</option><option value="30">Последние 30 дней</option></select><button class="btn primary" id="add-matrix-habit">＋ Привычка</button></div></div>
+        <div class="metric-grid overview"><article class="card mini-metric"><span>ВЫПОЛНЕНО ЗА ПЕРИОД</span><strong id="matrix-done">0</strong></article><article class="card mini-metric"><span>ВОЗМОЖНЫХ ОТМЕТОК</span><strong id="matrix-total">0</strong></article><article class="card mini-metric"><span>СРЕДНИЙ ПРОГРЕСС</span><strong id="matrix-rate">0%</strong></article></div>
+        <section class="card panel"><div class="section-head"><div><h2>Твоя матрица</h2><p class="muted">Нажми на квадрат, чтобы поставить или снять галочку.</p></div><span class="matrix-legend"><i class="matrix-sample"></i> Выполнено</span></div><div class="matrix-wrap" id="matrix-table-wrap"><table class="habit-matrix" id="habit-matrix"><caption class="sr-only">Ежедневные отметки привычек</caption></table></div><p class="matrix-footnote">На телефоне таблицу можно прокручивать по горизонтали. Изменения сохраняются автоматически.</p></section>
       </section>
 
       <section class="view" id="view-habits" hidden><div class="page-head"><div><p class="eyebrow">ТВОЯ СИСТЕМА</p><h1>Привычки<span class="accent">.</span></h1><p class="subtitle">Собери рутину, которая помогает тебе расти.</p></div><button class="btn primary" id="add-habit">＋ Новая привычка</button></div><div class="metric-grid overview"><article class="card mini-metric"><span>ВСЕГО ПРИВЫЧЕК</span><strong id="total-habits">0</strong></article><article class="card mini-metric"><span>ВЫПОЛНЕНО СЕГОДНЯ</span><strong id="today-total">0 / 0</strong></article><article class="card mini-metric"><span>ЛУЧШАЯ СЕРИЯ</span><strong id="best-streak">0 дней</strong></article></div><div class="card panel"><div class="section-head"><div><h2>Твой набор</h2><p class="muted">Добавляй привычки небольшими шагами.</p></div><select id="habit-sort" class="select"><option value="category">По направлению</option><option value="name">По названию</option><option value="streak">По серии</option></select></div><div id="all-habits-list" class="all-habits-list"></div></div></section>
@@ -49,5 +66,28 @@
 
   <dialog id="habit-dialog" class="habit-dialog"><form id="habit-form"><div class="dialog-head"><div><p class="eyebrow">ШАГ ЗА ШАГОМ</p><h2 id="dialog-title">Новая привычка</h2><p class="muted">Выбери действие, которое реально встроить в жизнь.</p></div><button type="button" class="icon-btn" id="close-dialog" aria-label="Закрыть">×</button></div><input id="habit-id" type="hidden"><label class="field-label" for="habit-name">Название привычки</label><input class="input" id="habit-name" maxlength="55" placeholder="Например, читать 10 страниц" required><label class="field-label" for="habit-description">Короткое описание <span class="muted">(необязательно)</span></label><input class="input" id="habit-description" maxlength="100" placeholder="Почему это важно для тебя?"><div class="form-row"><div><label class="field-label" for="habit-category">Направление</label><select class="input" id="habit-category"><option>Здоровье</option><option>Развитие</option><option>Фокус</option><option>Осознанность</option></select></div><div><label class="field-label" for="habit-emoji">Символ</label><select class="input" id="habit-emoji"><option>💧</option><option>🏃</option><option>📚</option><option>🧠</option><option>🎯</option><option>🌿</option><option>😴</option><option>✍️</option><option>🧘</option><option>✨</option></select></div></div><div class="dialog-actions"><button type="button" class="btn subtle" id="cancel-dialog">Отмена</button><button type="submit" class="btn primary">✓ Сохранить привычку</button></div></form></dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <dialog id="account-dialog" class="habit-dialog account-dialog">
+    <div class="dialog-head"><div><p class="eyebrow">ТВОЁ ПРОСТРАНСТВО</p><h2 id="account-dialog-title">Твой аккаунт</h2><p class="muted">Сохраняй привычки между устройствами.</p></div><button type="button" class="icon-btn" id="account-close" aria-label="Закрыть">×</button></div>
+    <div class="account-tabs"><button type="button" class="active" data-account-mode="login">Войти</button><button type="button" data-account-mode="signup">Создать аккаунт</button></div>
+    <div class="cloud-note" id="account-cloud-note">Для облачного аккаунта нужно подключить Supabase. Пока проект работает в локальном режиме, и данные остаются в этом браузере.</div>
+    <form id="account-form">
+      <label class="field-label" for="account-email">Электронная почта</label><input class="input" id="account-email" type="email" autocomplete="username" placeholder="you@example.com" required>
+      <label class="field-label" for="account-password">Пароль</label><input class="input" id="account-password" type="password" autocomplete="current-password" minlength="8" placeholder="Минимум 8 символов" required>
+      <p class="account-message" id="account-message" aria-live="polite"></p>
+      <button type="submit" class="btn primary account-submit" id="account-submit">Войти</button>
+    </form>
+    <div class="account-footer"><span>Пароль обрабатывает Supabase Auth; Forma его не сохраняет в localStorage.</span><button type="button" class="text-btn" id="account-logout" hidden>Выйти из аккаунта</button></div>
+  </dialog>
+
+  <button class="assistant-fab" id="assistant-fab" type="button" aria-label="Открыть ИИ-помощника" title="Вопросы и ИИ-помощник"><span>✦</span><i></i></button>
+  <section class="assistant-panel" id="assistant-panel" aria-label="ИИ-помощник Forma" hidden>
+    <header class="assistant-header"><div class="assistant-avatar">✦</div><div class="assistant-heading"><strong>Forma AI</strong><small id="assistant-status">Помощник привычек</small></div><button class="icon-btn" id="assistant-close" type="button" aria-label="Закрыть помощника">×</button></header>
+    <div class="assistant-messages" id="assistant-messages" aria-live="polite"><div class="assistant-message assistant-reply">Привет! Я помогу разбить большие цели на маленькие шаги, придумать привычку или разобраться с недельным прогрессом. С чего начнём?</div></div>
+    <div class="assistant-suggestions"><button type="button" data-ask="Помоги составить реалистичный план привычек на неделю.">План на неделю</button><button type="button" data-ask="Как не бросить привычку, если пропустил несколько дней?">Не терять ритм</button></div>
+    <form class="assistant-form" id="assistant-form"><label class="sr-only" for="assistant-input">Твой вопрос</label><textarea id="assistant-input" rows="1" maxlength="1200" placeholder="Задай вопрос..." required></textarea><button class="assistant-send" id="assistant-send" type="submit" aria-label="Отправить вопрос">↑</button></form>
+    <p class="assistant-disclaimer">ИИ может ошибаться. Не отправляй пароли и личные секреты.</p>
+  </section>
+
 </body>
 </html>
