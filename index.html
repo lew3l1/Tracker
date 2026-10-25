@@ -16,6 +16,36 @@
   <script src="app.js" defer></script>
 </head>
 <body>
+
+  <div class="loading-screen" id="loading-screen" role="status" aria-live="polite" aria-label="Загрузка Forma">
+    <div class="loading-scene" aria-hidden="true">
+      <span class="loading-bubble bubble-one"></span><span class="loading-bubble bubble-two"></span><span class="loading-bubble bubble-three"></span>
+      <svg class="loading-whale" viewBox="0 0 220 150" role="img" aria-label="Синий кит">
+        <defs>
+          <linearGradient id="whale-skin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#58c7f3"/><stop offset=".55" stop-color="#258edb"/><stop offset="1" stop-color="#2465bd"/></linearGradient>
+          <linearGradient id="whale-belly" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e1f7ff"/><stop offset="1" stop-color="#a7e4fa"/></linearGradient>
+        </defs>
+        <path class="whale-water" d="M93 21 C87 12 94 6 99 1 C101 9 103 12 99 19 M109 21 C109 13 116 10 119 4 C124 14 120 19 116 23" fill="none" stroke="#56c9f8" stroke-width="4" stroke-linecap="round"/>
+        <path d="M40 72 C20 65 15 53 13 43 C30 48 43 53 53 65 L58 76 Z" fill="url(#whale-skin)" stroke="#1c68b5" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M48 73 C39 89 28 97 18 98 C34 103 50 94 59 83 Z" fill="#2d87cd"/>
+        <path d="M47 74 C51 47 78 34 113 37 C148 39 173 51 181 72 C187 89 170 105 145 108 C115 112 82 102 62 91 C53 86 47 81 47 74 Z" fill="url(#whale-skin)" stroke="#1f71bd" stroke-width="2"/>
+        <path d="M62 82 C83 96 112 104 142 99 C154 97 164 91 171 82 C158 108 115 119 78 101 C69 97 63 90 62 82 Z" fill="url(#whale-belly)"/>
+        <path d="M112 89 C122 82 139 84 148 91 C141 101 122 106 111 100 Z" fill="#2077be"/>
+        <path d="M83 100 C78 109 79 117 86 122 C93 119 96 112 95 105 Z" fill="#45b1e8" stroke="#2077be" stroke-width="1.5"/>
+        <circle cx="157" cy="67" r="4.3" fill="#fff"/><circle cx="158" cy="67" r="2.2" fill="#16395e"/>
+        <path d="M166 77 Q174 81 180 76" fill="none" stroke="#165f9f" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M131 43 Q146 45 155 53" fill="none" stroke="#9ce7ff" stroke-width="2.5" stroke-linecap="round" opacity=".8"/>
+        <path d="M65 58 Q75 45 89 43" fill="none" stroke="#9ce7ff" stroke-width="2.5" stroke-linecap="round" opacity=".65"/>
+        <circle cx="29" cy="30" r="4" fill="none" stroke="#7cddff" stroke-width="2"/><circle cx="183" cy="39" r="5.5" fill="none" stroke="#7cddff" stroke-width="2"/><circle cx="198" cy="64" r="2.8" fill="#7cddff"/>
+      </svg>
+      <span class="loading-ripple ripple-one"></span><span class="loading-ripple ripple-two"></span>
+    </div>
+    <div class="loading-wordmark">forma<span>.</span></div>
+    <p class="loading-caption" id="loading-caption">Собираем твой день в одно целое</p>
+    <div class="loading-progress" aria-hidden="true"><span></span></div>
+    <span class="loading-footnote">Маленькие шаги. Большие изменения.</span>
+  </div>
+
   <div class="app">
     <aside class="sidebar">
       <a class="brand" href="#today" aria-label="Forma на главную"><span class="brand-mark">✳</span><span>forma<span class="accent">.</span></span></a>
@@ -27,6 +57,7 @@
         <button class="nav-link" data-view="insights"><span class="nav-icon">▥</span><span class="nav-text">Динамика</span></button>
         <button class="nav-link" data-view="journal"><span class="nav-icon">✎</span><span class="nav-text">Дневник</span></button>
         <button class="nav-link" data-view="focus"><span class="nav-icon">◉</span><span class="nav-text">Фокус</span></button>
+        <button class="nav-link" data-view="friends"><span class="nav-icon">🐋</span><span class="nav-text">Друзья</span></button>
       </nav>
       <div class="focus-card"><span class="spark">✦</span><p class="focus-title">Маленькие шаги.</p><p class="muted">Большие изменения начинаются с того, что ты делаешь сегодня.</p><div class="progress-track"><span id="side-progress"></span></div><div class="between tiny"><span>Прогресс дня</span><strong id="side-percent">0%</strong></div></div>
       <div class="sidebar-bottom">
@@ -95,6 +126,59 @@
       </section>
 
       <footer class="footer"><span>FORMA<span class="accent">.</span> PERSONAL GROWTH</span><span>Сделано для твоего следующего шага ✦</span></footer>
+
+      <section class="view" id="view-friends" hidden>
+        <div class="page-head">
+          <div><p class="eyebrow">РАСТИ ВМЕСТЕ</p><h1>Друзья<span class="accent">.</span></h1><p class="subtitle">Поддерживайте привычки друг друга — без гонки и сравнений.</p></div>
+        </div>
+        <div class="community-auth card" id="community-auth-required" hidden>
+          <div class="community-auth-icon">🐋</div>
+          <h2>Начни свой круг поддержки</h2>
+          <p class="muted">Войди или создай аккаунт Forma, чтобы находить друзей и безопасно делиться сводкой прогресса.</p>
+          <button class="btn primary" id="community-login-btn" type="button">Войти или создать аккаунт</button>
+        </div>
+        <div id="community-content" hidden>
+          <p class="community-status" id="community-status" aria-live="polite"></p>
+          <div class="community-grid">
+            <section class="card panel community-profile-panel">
+              <div class="section-head"><div><h2>Твой профиль</h2><p class="muted">По этому нику тебя смогут найти.</p></div><span class="community-section-icon">✦</span></div>
+              <form id="friend-profile-form" class="community-profile-form">
+                <label class="field-label" for="friend-username">Username</label>
+                <div class="username-field"><span>@</span><input class="input" id="friend-username" name="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" autocomplete="nickname" spellcheck="false" required placeholder="your_name"></div>
+                <small class="field-hint">3–20 символов: латинские буквы, цифры и _</small>
+                <label class="field-label" for="friend-display-name">Отображаемое имя</label>
+                <input class="input" id="friend-display-name" name="display_name" minlength="2" maxlength="32" autocomplete="name" required placeholder="Как тебя называть">
+                <p class="community-form-message" id="friend-profile-message" aria-live="polite"></p>
+                <button class="btn primary" id="friend-profile-save" type="submit">Сохранить профиль</button>
+              </form>
+              <div class="community-privacy"><span>⌁</span><p>Виден только ник и имя. Email, дневник и названия твоих привычек не показываются.</p></div>
+            </section>
+            <section class="card panel community-search-panel">
+              <div class="section-head"><div><h2>Найти друзей</h2><p class="muted">Ищи по уникальному username.</p></div><span class="community-section-icon">⌕</span></div>
+              <form id="friend-search-form" class="community-search-form">
+                <label class="sr-only" for="friend-search">Username пользователя</label>
+                <input class="input" id="friend-search" name="query" maxlength="20" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Например, lew3l1" required>
+                <button class="btn primary" id="friend-search-submit" type="submit">Найти</button>
+              </form>
+              <div class="community-results" id="friend-search-results"><p class="community-empty">Введи username, чтобы найти человека.</p></div>
+            </section>
+            <section class="card panel community-requests-panel">
+              <div class="section-head"><div><h2>Входящие заявки</h2><p class="muted">Ты сам решаешь, с кем делиться прогрессом.</p></div><span class="community-count" id="friend-incoming-count">0</span></div>
+              <div class="community-request-list" id="friend-incoming-list"><p class="community-empty">Заявок пока нет.</p></div>
+            </section>
+            <section class="card panel community-outgoing-panel">
+              <div class="section-head"><div><h2>Отправленные заявки</h2><p class="muted">Заявки можно отменить в любой момент.</p></div><span class="community-count" id="friend-outgoing-count">0</span></div>
+              <div class="community-request-list" id="friend-outgoing-list"><p class="community-empty">Отправленных заявок нет.</p></div>
+            </section>
+          </div>
+          <section class="card panel community-friends-panel">
+            <div class="section-head"><div><h2>Мой круг</h2><p class="muted">Сводка выполнения за сегодня и последние 7 дней.</p></div><span class="community-count" id="friend-list-count">0</span></div>
+            <div class="community-friend-list" id="friend-list"><p class="community-empty">Добавь первого друга — и вы сможете поддерживать друг друга.</p></div>
+            <p class="community-privacy-note">Прогресс — только сводные числа. Дневник, личные заметки и названия привычек остаются приватными.</p>
+          </section>
+        </div>
+      </section>
+
     </main>
   </div>
 
