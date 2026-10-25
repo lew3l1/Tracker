@@ -110,12 +110,10 @@ begin
   v_name := left(coalesce(
     nullif(new.raw_user_meta_data ->> 'full_name', ''),
     nullif(new.raw_user_meta_data ->> 'name', ''),
-    nullif(split_part(coalesce(new.email, ''), '@', 1), ''),
     'Forma user'
   ), 32);
   v_base := lower(regexp_replace(
-    coalesce(nullif(new.raw_user_meta_data ->> 'preferred_username', ''),
-             split_part(coalesce(new.email, ''), '@', 1), ''),
+    coalesce(nullif(new.raw_user_meta_data ->> 'preferred_username', ''), ''),
     '[^a-zA-Z0-9_]', '_', 'g'
   ));
   v_base := trim(both '_' from v_base);
@@ -160,14 +158,12 @@ begin
     v_name := left(coalesce(
       nullif(u.raw_user_meta_data ->> 'full_name', ''),
       nullif(u.raw_user_meta_data ->> 'name', ''),
-      nullif(split_part(coalesce(u.email, ''), '@', 1), ''),
       'Forma user'
     ), 32);
     if char_length(trim(v_name)) < 2 then v_name := 'Forma user'; end if;
 
     v_base := lower(regexp_replace(
-      coalesce(nullif(u.raw_user_meta_data ->> 'preferred_username', ''),
-               split_part(coalesce(u.email, ''), '@', 1), ''),
+      coalesce(nullif(u.raw_user_meta_data ->> 'preferred_username', ''), ''),
       '[^a-zA-Z0-9_]', '_', 'g'
     ));
     v_base := trim(both '_' from v_base);
