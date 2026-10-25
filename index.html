@@ -28,14 +28,14 @@
       </nav>
       <div class="focus-card"><span class="spark">✦</span><p class="focus-title">Маленькие шаги.</p><p class="muted">Большие изменения начинаются с того, что ты делаешь сегодня.</p><div class="progress-track"><span id="side-progress"></span></div><div class="between tiny"><span>Прогресс дня</span><strong id="side-percent">0%</strong></div></div>
       <div class="sidebar-bottom">
-        <button class="profile-account" id="account-open-side" type="button" aria-label="Настройки аккаунта"><span class="avatar" id="profile-avatar">F</span><span class="profile-copy"><strong id="profile-title">Гость</strong><small id="profile-subtitle">Данные в браузере</small></span></button>
+        <button class="profile-account" id="account-open-side" type="button" aria-label="Настройки аккаунта"><span class="avatar" id="profile-avatar"><span id="profile-avatar-initial">F</span><img id="profile-avatar-img" alt="" hidden></span><span class="profile-copy"><strong id="profile-title">Гость</strong><small id="profile-subtitle">Данные в браузере</small></span></button>
         <div class="sidebar-tools"><button class="icon-btn" id="backup-btn" title="Экспортировать данные" aria-label="Экспортировать данные">⇩</button><button class="icon-btn" id="restore-btn" title="Восстановить из JSON" aria-label="Восстановить из JSON">⇧</button></div>
         <input id="restore-file" type="file" accept="application/json" hidden>
       </div>
     </aside>
 
     <main class="main">
-      <header class="topbar"><div class="breadcrumb">FORMA <span>/</span> <strong id="crumb">Мой день</strong></div><div class="top-actions"><span class="date-pill" id="top-date"></span><button class="theme-btn" id="theme-toggle" title="Сменить тему" aria-label="Сменить тему">☾</button><button class="account-btn" id="account-open" title="Войти или создать аккаунт" aria-label="Аккаунт">♙</button></div></header>
+      <header class="topbar"><div class="breadcrumb">FORMA <span>/</span> <strong id="crumb">Мой день</strong></div><div class="top-actions"><span class="date-pill" id="top-date"></span><button class="theme-btn" id="theme-toggle" title="Сменить тему" aria-label="Сменить тему">☾</button><button class="account-btn" id="account-open" title="Войти или создать аккаунт" aria-label="Аккаунт"><span id="account-button-fallback">♙</span><img id="account-button-avatar" alt="" hidden></button></div></header>
 
       <section class="view active" id="view-today">
         <div class="page-head"><div><p class="eyebrow" id="today-eyebrow"></p><h1>С возвращением<span class="accent">.</span></h1><p class="subtitle">Не нужно быть идеальным. Достаточно двигаться вперёд.</p></div><div class="date-nav"><button class="icon-btn" id="prev-day" aria-label="Предыдущий день">←</button><button class="btn subtle" id="go-today">Сегодня</button><button class="icon-btn" id="next-day" aria-label="Следующий день">→</button></div></div>
@@ -69,6 +69,17 @@
 
   <dialog id="account-dialog" class="habit-dialog account-dialog">
     <div class="dialog-head"><div><p class="eyebrow">ТВОЁ ПРОСТРАНСТВО</p><h2 id="account-dialog-title">Твой аккаунт</h2><p class="muted">Сохраняй привычки между устройствами.</p></div><button type="button" class="icon-btn" id="account-close" aria-label="Закрыть">×</button></div>
+    <section class="account-profile-card" id="account-profile" hidden>
+      <div class="account-profile-top">
+        <div class="account-profile-avatar"><span id="account-avatar-initial">F</span><img id="account-avatar-img" alt="" hidden></div>
+        <div class="account-profile-heading"><strong id="account-profile-name">Пользователь Forma</strong><span id="account-profile-email">user@example.com</span><span class="provider-chip" id="account-profile-provider">Google · Подключён</span></div>
+      </div>
+      <div class="account-profile-details">
+        <div><span>Статус</span><strong id="account-profile-status">Аккаунт подключён</strong></div>
+        <div><span>Синхронизация</span><strong id="account-sync-status">Проверяем подключение…</strong></div>
+        <div><span>Дата регистрации</span><strong id="account-profile-created">—</strong></div>
+      </div>
+    </section>
     <div class="account-tabs"><button type="button" class="active" data-account-mode="login">Войти</button><button type="button" data-account-mode="signup">Создать аккаунт</button></div>
     <div class="cloud-note" id="account-cloud-note">Для облачного аккаунта нужно подключить Supabase. Пока проект работает в локальном режиме, и данные остаются в этом браузере.</div>
     <form id="account-form">
