@@ -296,7 +296,7 @@
     $('#focus-timer-caption').textContent = focusMode === 'focus' ? 'Пора сосредоточиться' : 'Время немного отдохнуть';
     $('#focus-toggle').textContent = focusRunning ? 'Ⅱ Пауза' : (focusRemaining > 0 && focusRemaining < focusDuration ? '▶ Продолжить' : '▶ Начать фокус');
     $('#focus-session-status').textContent = focusRunning ? (focusMode === 'focus' ? 'Идёт сессия фокусировки. Не отвлекайся на лишнее.' : 'Идёт время отдыха. Перезарядись без спешки.') : focusStatusMessage;
-    $('[data-focus-mode]').forEach(button => button.classList.toggle('active', button.dataset.focusMode === focusMode));
+    $$('[data-focus-mode]').forEach(button => button.classList.toggle('active', button.dataset.focusMode === focusMode));
   }
   function renderFocus() {
     const select = $('#focus-habit');
