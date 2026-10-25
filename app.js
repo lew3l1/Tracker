@@ -432,7 +432,10 @@
         renderAll();
         $('#profile-subtitle').textContent = 'Синхронизировано';
       } else {
+        const oldHydrationState = hydratingCloud;
+        hydratingCloud = false;
         await pushCloudData(true);
+        hydratingCloud = oldHydrationState;
       }
     } finally {
       hydratingCloud = false;
@@ -686,15 +689,22 @@
     if (edit) openHabitDialog(habits.find(h => h.id === edit.dataset.edit));
     const del = event.target.closest('[data-delete]');
     if (del) deleteHabit(del.dataset.delete);
+    const accountTab = event.target.closest('[data-account-mode]');
+    if (accountTab) setAccountMode(accountTab.dataset.accountMode);
+    const askShortcut = event.target.closest('[data-ask]');
+    if (askShortcut) {
+      openAssistant();
+      askAssistant(askShortcut.dataset.ask);
+    }
     const filter = event.target.closest('[data-category]');
     if (filter && filter.closest('#today-filters')) {
       activeFilter = filter.dataset.category;
       renderToday();
-      $$('#today-filters [data-category]').forEach(button => button.classList.toggle('active', button === filter));
+      $('#today-filters [data-category]').forEach(button => button.classList.toggle('active', button === filter));
     }
     const mood = event.target.closest('[data-mood]');
     if (mood) {
-      $$('#moods button').forEach(button => button.classList.toggle('active', button === mood));
+      $('#moods button').forEach(button => button.classList.toggle('active', button === mood));
       saveJournal();
     }
     const prompt = event.target.closest('[data-prompt]');
@@ -708,8 +718,7 @@
     if (rangeButton) {
       insightRange = Number(rangeButton.dataset.range);
       renderInsights();
-      $$('#insights-placeholder [data-range]').forEach(button => button.classList.toggle('active', button === rangeButton));
-      $$('[data-range]').forEach(button => button.classList.toggle('active', button === rangeButton));
+      $('[data-range]').forEach(button => button.classList.toggle('active', Number(button.dataset.range) === insightRange));
     }
   });
   $('#add-habit').addEventListener('click', () => openHabitDialog());
@@ -731,9 +740,47 @@
   $('#theme-toggle').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
   $('#backup-btn').addEventListener('click', exportData);
   $('#restore-btn').addEventListener('click', () => $('#restore-file').click());
-  $('.sidebar-bottom .avatar').addEventListener('dblclick', () => $('#restore-file').click());
+  $('#profile-avatar').addEventListener('dblclick', () => $('#restore-file').click());
   $('#restore-file').addEventListener('change', event => importData(event.target.files && event.target.files[0]));
+  $('#matrix-range').addEventListener('change', renderMatrix);
+  $('#add-matrix-habit').addEventListener('click', () => openHabitDialog());
+  $('#habit-matrix').addEventListener('change', event => {
+    const checkbox = event.target.closest('[data-matrix-toggle]');
+    if (!checkbox) return;
+    setHabitState(checkbox.dataset.matrixToggle, checkbox.dataset.day, checkbox.checked);
+  });
+
+  $('#account-open').addEventListener('click', () => { renderAccountUI(); $('#account-dialog').showModal(); });
+  $('#account-open-side').addEventListener('click', () => { renderAccountUI(); $('#account-dialog').showModal(); });
+  $('#account-close').addEventListener('click', () => $('#account-dialog').close());
+  $('#account-form').addEventListener('submit', submitAccount);
+  $('#account-logout').addEventListener('click', signOutAccount);
+
+  $('#assistant-fab').addEventListener('click', () => {
+    if ($('#assistant-panel').hidden) openAssistant();
+    else closeAssistant();
+  });
+  $('#assistant-close').addEventListener('click', closeAssistant);
+  $('#assistant-form').addEventListener('submit', event => {
+    event.preventDefault();
+    askAssistant($('#assistant-input').value);
+  });
+  $('#assistant-input').addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      $('#assistant-form').requestSubmit();
+    }
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeAssistant();
+  });
+
   const storedTheme = read(KEYS.theme, null);
   setTheme(storedTheme === 'dark' || storedTheme === 'light' ? storedTheme : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
   renderAll();
+  initializeAccount().catch(error => {
+    hydratingCloud = false;
+    console.error('Не удалось инициализировать аккаунт Forma:', error);
+    renderAccountUI();
+  });
 })();
