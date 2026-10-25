@@ -156,3 +156,5 @@
 .account-btn #account-button-fallback{display:grid;place-items:center;width:100%;height:100%}
 .avatar{position:relative;overflow:hidden}
 .account-footer #account-logout{margin-left:auto}
+/* Keep the native hidden attribute authoritative inside dialogs and flex layouts. */
+#account-dialog [hidden] { display: none !important; }
