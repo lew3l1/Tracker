@@ -136,6 +136,53 @@ create trigger on_auth_user_created_forma_profile
   after insert on auth.users
   for each row execute function public.handle_new_forma_profile();
 
+
+-- Backfill profiles for users who registered before the friends feature existed.
+-- Username collisions are resolved with a short, deterministic suffix from the auth user ID.
+do $
+declare
+  u record;
+  v_name text;
+  v_base text;
+  v_username text;
+  v_avatar text;
+begin
+  for u in select id, email, raw_user_meta_data from auth.users loop
+    if exists (select 1 from public.profiles p where p.id = u.id) then
+      continue;
+    end if;
+
+    v_name := left(coalesce(
+      nullif(u.raw_user_meta_data ->> 'full_name', ''),
+      nullif(u.raw_user_meta_data ->> 'name', ''),
+      nullif(split_part(coalesce(u.email, ''), '@', 1), ''),
+      'Forma user'
+    ), 32);
+    if char_length(trim(v_name)) < 2 then v_name := 'Forma user'; end if;
+
+    v_base := lower(regexp_replace(
+      coalesce(nullif(u.raw_user_meta_data ->> 'preferred_username', ''),
+               split_part(coalesce(u.email, ''), '@', 1), ''),
+      '[^a-zA-Z0-9_]', '_', 'g'
+    ));
+    v_base := trim(both '_' from v_base);
+    if length(v_base) < 3 then
+      v_base := 'user_' || substring(replace(u.id::text, '-', '') from 1 for 8);
+    end if;
+    v_username := left(v_base, 20);
+    if exists (select 1 from public.profiles p where lower(p.username) = lower(v_username) and p.id <> u.id) then
+      v_username := left(v_base, 11) || '_' || substring(replace(u.id::text, '-', '') from 1 for 8);
+    end if;
+
+    v_avatar := coalesce(u.raw_user_meta_data ->> 'avatar_url', u.raw_user_meta_data ->> 'picture', '');
+    if v_avatar !~ '^https://' then v_avatar := null; end if;
+    insert into public.profiles (id, username, display_name, avatar_url)
+    values (u.id, v_username, v_name, v_avatar)
+    on conflict (id) do nothing;
+  end loop;
+end;
+$;
+
 create or replace function public.accept_friend_request(p_request_id uuid)
 returns void
 language plpgsql
