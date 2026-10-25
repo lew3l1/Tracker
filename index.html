@@ -25,6 +25,7 @@
         <button class="nav-link" data-view="table"><span class="nav-icon">▦</span><span class="nav-text">Таблица</span></button>
         <button class="nav-link" data-view="insights"><span class="nav-icon">▥</span><span class="nav-text">Динамика</span></button>
         <button class="nav-link" data-view="journal"><span class="nav-icon">✎</span><span class="nav-text">Дневник</span></button>
+        <button class="nav-link" data-view="focus"><span class="nav-icon">◉</span><span class="nav-text">Фокус</span></button>
       </nav>
       <div class="focus-card"><span class="spark">✦</span><p class="focus-title">Маленькие шаги.</p><p class="muted">Большие изменения начинаются с того, что ты делаешь сегодня.</p><div class="progress-track"><span id="side-progress"></span></div><div class="between tiny"><span>Прогресс дня</span><strong id="side-percent">0%</strong></div></div>
       <div class="sidebar-bottom">
@@ -60,6 +61,36 @@
       <section class="view" id="view-insights" hidden><div class="page-head"><div><p class="eyebrow">ТВОЙ ПРОГРЕСС</p><h1>Моя динамика<span class="accent">.</span></h1><p class="subtitle">Смотри на тенденции, а не на отдельные дни.</p></div><div class="range-toggle"><button class="active" data-range="7">7 дней</button><button data-range="30">30 дней</button></div></div><div class="metric-grid analytics"><article class="card metric"><span class="metric-label">ВЫПОЛНЕНО</span><p class="metric-value"><strong id="insight-rate">0%</strong></p><p class="metric-foot">За выбранный период</p></article><article class="card metric"><span class="metric-label">ОТМЕТОК</span><p class="metric-value"><strong id="insight-done">0</strong></p><p class="metric-foot">Небольшие победы</p></article><article class="card metric"><span class="metric-label">ЛУЧШАЯ СЕРИЯ</span><p class="metric-value"><strong id="insight-streak">0</strong> <span>дней</span></p><p class="metric-foot">Продолжай в своём темпе</p></article></div><div class="content-grid insights-grid"><section class="card panel"><div class="section-head"><div><h2>Карта активности</h2><p class="muted">Каждая ячейка — один день.</p></div></div><div id="activity-grid" class="activity-grid"></div><div class="chart-legend"><span>Меньше</span><i class="activity-cell level-0"></i><i class="activity-cell level-1"></i><i class="activity-cell level-2"></i><i class="activity-cell level-3"></i><i class="activity-cell level-4"></i><span>Больше</span></div></section><section class="card panel"><div class="section-head"><div><h2>По направлениям</h2><p class="muted">Что удаётся поддерживать.</p></div></div><div id="category-stats" class="category-stats"></div></section></div><section class="card panel"><div class="section-head"><div><h2>Динамика по дням</h2><p class="muted">Процент выполненных привычек.</p></div></div><div class="insight-chart" id="insight-chart"></div></section></section>
 
       <section class="view" id="view-journal" hidden><div class="page-head"><div><p class="eyebrow">ПАУЗА ДЛЯ СЕБЯ</p><h1>Дневник<span class="accent">.</span></h1><p class="subtitle">Несколько минут, чтобы заметить, как ты на самом деле.</p></div><div class="date-nav"><button class="icon-btn" id="journal-prev" aria-label="Предыдущий день">←</button><button class="btn subtle" id="journal-today">Сегодня</button><button class="icon-btn" id="journal-next" aria-label="Следующий день">→</button></div></div><div class="journal-grid"><section class="card panel journal-main"><div class="section-head"><div><p class="eyebrow">ТВОЁ ПРОСТРАНСТВО</p><h2>Как прошёл день?</h2><p class="muted" id="journal-date-label"></p></div><span class="save-state" id="save-state">● Сохранено локально</span></div><label class="field-label">Как ты себя чувствуешь?</label><div class="moods" id="moods"><button type="button" data-mood="low">☁<small>Тяжело</small></button><button type="button" data-mood="okay">◒<small>Нормально</small></button><button type="button" data-mood="good">☀<small>Хорошо</small></button><button type="button" data-mood="great">✦<small>Отлично</small></button></div><label class="field-label" for="journal-entry">Заметки дня</label><textarea id="journal-entry" rows="9" placeholder="Что сегодня получилось? Что забрало энергию? Что хочешь сделать иначе завтра…"></textarea><div class="prompts"><span>МОЖНО НАЧАТЬ С ЭТОГО</span><button type="button" data-prompt="Сегодня я горжусь собой за то, что…">Сегодня я горжусь собой за то, что…</button><button type="button" data-prompt="Одно небольшое улучшение на завтра — это…">Одно улучшение на завтра — это…</button><button type="button" data-prompt="Сегодня я понял(а), что…">Сегодня я понял(а), что…</button></div></section><aside class="journal-aside"><article class="card reflection"><span>✧</span><h3>Не обязательно каждый день быть продуктивным.</h3><p>Отдых, восстановление и умение сказать «сегодня достаточно» тоже часть личного развития.</p></article><article class="card panel"><p class="eyebrow">ТВОИ ЗАМЕТКИ</p><div class="between journal-stat"><span>Записей всего</span><strong id="journal-count">0</strong></div><div class="between journal-stat"><span>Выполнено сегодня</span><strong id="journal-done">0</strong></div><button class="text-btn" data-open="insights">Посмотреть динамику ↗</button></article></aside></div></section>
+      <section class="view" id="view-focus" hidden>
+        <div class="page-head"><div><p class="eyebrow">ВРЕМЯ ДЛЯ СЕБЯ</p><h1>Фокус и напоминания<span class="accent">.</span></h1><p class="subtitle">Выдели время на важное и настрой мягкие напоминания о привычках.</p></div></div>
+        <div class="focus-workspace">
+          <section class="card panel focus-timer-card">
+            <div class="section-head"><div><p class="eyebrow">НЕБОЛЬШИМИ ШАГАМИ</p><h2>Таймер фокусировки</h2><p class="muted">Одна задача за раз. Уведомим, когда время закончится.</p></div><span class="focus-live-dot" aria-hidden="true"></span></div>
+            <div class="focus-mode-switch" role="group" aria-label="Режим таймера">
+              <button type="button" data-focus-mode="focus" class="active">Фокус · 25 мин</button>
+              <button type="button" data-focus-mode="short">Короткий отдых · 5 мин</button>
+              <button type="button" data-focus-mode="long">Длинный отдых · 15 мин</button>
+            </div>
+            <div class="focus-timer-layout">
+              <div class="focus-timer-face" id="focus-timer-face" role="timer" aria-label="Осталось 25 минут"><div><strong id="focus-timer-display">25:00</strong><span id="focus-timer-caption">Пора сосредоточиться</span></div></div>
+              <div class="focus-timer-controls">
+                <label class="field-label" for="focus-habit">На чём фокусируемся?</label>
+                <select class="input" id="focus-habit"></select>
+                <p class="muted focus-hint" id="focus-hint">Убери отвлекающие факторы и начни с одного небольшого шага.</p>
+                <div class="focus-actions"><button type="button" class="btn primary" id="focus-toggle">▶ Начать фокус</button><button type="button" class="btn subtle" id="focus-reset">↺ Сбросить</button></div>
+              </div>
+            </div>
+            <p class="focus-session-status" id="focus-session-status" aria-live="polite">Таймер готов к запуску.</p>
+          </section>
+          <section class="card panel reminders-card">
+            <div class="section-head"><div><p class="eyebrow">ЗАБОТА О СЕБЕ</p><h2>Напоминания о привычках</h2><p class="muted">Выбери время для каждого действия — Forma напомнит, если привычка ещё не отмечена.</p></div></div>
+            <div class="notification-permission"><div class="notification-symbol">♧</div><div class="notification-copy"><strong id="notification-title">Браузерные уведомления</strong><p id="notification-description">Разреши уведомления, чтобы получать напоминания даже когда вкладка не на переднем плане.</p></div><button type="button" class="btn subtle" id="enable-notifications">Разрешить</button></div>
+            <div class="reminder-list" id="reminder-list"></div>
+            <p class="reminder-footnote">Напоминания работают, пока Forma открыта в браузере. Для уведомлений, когда сайт полностью закрыт, потребуется отдельная настройка PWA и push-сервера.</p>
+          </section>
+        </div>
+      </section>
+
       <footer class="footer"><span>FORMA<span class="accent">.</span> PERSONAL GROWTH</span><span>Сделано для твоего следующего шага ✦</span></footer>
     </main>
   </div>
