@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const KEYS = { habits: 'forma.habits.v1', logs: 'forma.logs.v1', journal: 'forma.journal.v1', reminders: 'forma.reminders.v1', theme: 'forma.theme.v1', auth: 'forma.auth.session.v1', owner: 'forma.data.owner.v1' };
+  const KEYS = { habits: 'forma.habits.v1', logs: 'forma.logs.v1', journal: 'forma.journal.v1', language: 'forma.language.v1', reminders: 'forma.reminders.v1', theme: 'forma.theme.v1', auth: 'forma.auth.session.v1', owner: 'forma.data.owner.v1' };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const categories = ['Здоровье', 'Развитие', 'Фокус', 'Осознанность'];
@@ -42,8 +42,78 @@
   function range(end, count) {
     return Array.from({ length: count }, (_, i) => addDays(end, i - count + 1));
   }
+  function localeForLanguage() { return language === 'en' ? 'en-US' : 'ru-RU'; }
   function fmt(key, options = { day: 'numeric', month: 'short' }) {
-    return parseDate(key).toLocaleDateString('ru-RU', options).replace(' г.', '');
+    return parseDate(key).toLocaleDateString(localeForLanguage(), options).replace(' г.', '');
+  }
+  function formatHeaderDateTime() {
+    const now = new Date();
+    const date = now.toLocaleDateString(localeForLanguage(), { day: 'numeric', month: language === 'en' ? 'short' : 'long' });
+    const time = now.toLocaleTimeString(localeForLanguage(), { hour: 'numeric', minute: '2-digit', hour12: language === 'en' });
+    return date + ' · ' + time;
+  }
+  const TRANSLATIONS = window.FORMA_I18N || {};
+  const TRANSLATIONS_REVERSE = Object.fromEntries(Object.entries(TRANSLATIONS).map(([ru, en]) => [en, ru]));
+  function translateValue(value) {
+    const raw = String(value ?? '');
+    const lead = (raw.match(/^\\s*/) || [''])[0];
+    const trail = (raw.match(/\\s*$/) || [''])[0];
+    const core = raw.slice(lead.length, raw.length - trail.length);
+    if (!core) return raw;
+    const lookup = language === 'en' ? TRANSLATIONS : TRANSLATIONS_REVERSE;
+    if (Object.prototype.hasOwnProperty.call(lookup, core)) return lead + lookup[core] + trail;
+    let match;
+    if (language === 'en') {
+      match = core.match(/^(\\d+) выполнено$/); if (match) return lead + match[1] + ' completed' + trail;
+      match = core.match(/^(\\d+) осталось$/); if (match) return lead + match[1] + ' remaining' + trail;
+      match = core.match(/^(\\d+) дней?$/); if (match) return lead + match[1] + (match[1] === '1' ? ' day' : ' days') + trail;
+      match = core.match(/^(\\d+) дн\\.$/); if (match) return lead + match[1] + (match[1] === '1' ? ' day' : ' days') + trail;
+      match = core.match(/^(\\d+) привычек$/); if (match) return lead + match[1] + ' habits' + trail;
+      match = core.match(/^(\\d+)% · (\\d+) привычек$/); if (match) return lead + match[1] + '% · ' + match[2] + ' habits' + trail;
+      match = core.match(/^(\\d+) выполнено сегодня ✓$/); if (match) return lead + match[1] + ' completed today ✓' + trail;
+      match = core.match(/^\u001f(.+)$/); if (match) return lead + match[1] + trail;
+    } else {
+      match = core.match(/^(\\d+) completed$/); if (match) return lead + match[1] + ' выполнено' + trail;
+      match = core.match(/^(\\d+) remaining$/); if (match) return lead + match[1] + ' осталось' + trail;
+      match = core.match(/^(\\d+) days?$/); if (match) return lead + match[1] + ' дней' + trail;
+      match = core.match(/^(\\d+) habits$/); if (match) return lead + match[1] + ' привычек' + trail;
+      match = core.match(/^(\\d+)% · (\\d+) habits$/); if (match) return lead + match[1] + '% · ' + match[2] + ' привычек' + trail;
+      match = core.match(/^(\\d+) completed today ✓$/); if (match) return lead + match[1] + ' выполнено сегодня ✓' + trail;
+    }
+    return raw;
+  }
+  function applyLanguage() {
+    document.documentElement.lang = language === 'en' ? 'en' : 'ru';
+    const langButton = $('#language-toggle');
+    if (langButton) {
+      langButton.textContent = language.toUpperCase();
+      langButton.title = language === 'en' ? 'Switch to Russian' : 'Переключить на английский';
+      langButton.setAttribute('aria-label', langButton.title);
+    }
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      const parent = node.parentElement;
+      if (!parent || parent.closest('script,style,textarea,#account-profile-name,#account-profile-email,.assistant-message')) continue;
+      const translated = translateValue(node.nodeValue);
+      if (translated !== node.nodeValue) node.nodeValue = translated;
+    }
+    document.querySelectorAll('[title],[aria-label],[placeholder],[alt]').forEach(element => {
+      for (const attr of ['title', 'aria-label', 'placeholder', 'alt']) {
+        const value = element.getAttribute(attr);
+        if (value !== null) element.setAttribute(attr, translateValue(value));
+      }
+    });
+    document.title = 'Forma — Habit Tracker';
+    const description = document.querySelector('meta[name="description"]');
+    if (description) description.content = language === 'en' ? 'Forma — a personal habit tracker, goal planner, and daily reflection journal.' : 'Forma — персональный трекер привычек, целей и ежедневной рефлексии.';
+    const dateNode = $('#top-date');
+    if (dateNode) dateNode.textContent = formatHeaderDateTime();
+  }
+  function setLanguage(nextLanguage) {
+    language = nextLanguage === 'en' ? 'en' : 'ru';
+    write(KEYS.language, language);
+    renderAll();
   }
   function read(key, fallback) {
     try {
@@ -57,7 +127,7 @@
   function write(key, value) {
     try {
       localStorage.setItem(key, JSON.stringify(value));
-      if ([KEYS.habits, KEYS.logs, KEYS.journal, KEYS.reminders].includes(key)) scheduleCloudSync();
+      if ([KEYS.habits, KEYS.logs, KEYS.journal, KEYS.reminders, KEYS.language].includes(key)) scheduleCloudSync();
       return true;
     } catch (error) {
       console.error('Не удалось сохранить данные:', error);
@@ -88,6 +158,7 @@
   }
   let logs = read(KEYS.logs, {});
   let journal = read(KEYS.journal, {});
+  let language = read(KEYS.language, 'ru') === 'en' ? 'en' : 'ru';
   let reminders = read(KEYS.reminders, {});
   if (!reminders || typeof reminders !== 'object' || Array.isArray(reminders)) reminders = {};
   let focusMode = 'focus';
@@ -177,8 +248,8 @@
     setHabitState(id, selectedDate, !isDone(id, selectedDate));
   }
   function renderHeader() {
-    $('#top-date').textContent = fmt(todayKey(), { day: 'numeric', month: 'long' });
-    $('#today-eyebrow').textContent = fmt(selectedDate, { weekday: 'long', day: 'numeric', month: 'long' }).toLocaleUpperCase('ru-RU');
+    $('#top-date').textContent = formatHeaderDateTime();
+    $('#today-eyebrow').textContent = fmt(selectedDate, { weekday: 'long', day: 'numeric', month: 'long' }).toLocaleUpperCase(localeForLanguage());
     $('#hero-date').textContent = fmt(selectedDate);
     $('#prev-day').disabled = selectedDate <= '2000-01-01';
     $('#next-day').disabled = selectedDate >= todayKey();
@@ -490,6 +561,7 @@
     renderJournal();
     renderFocus();
     renderAccountUI();
+    applyLanguage();
     $('#go-today').disabled = selectedDate === todayKey();
     $('#journal-today').disabled = selectedDate === todayKey();
     $$('[data-range]').forEach(button => button.classList.toggle('active', Number(button.dataset.range) === insightRange));
@@ -510,7 +582,7 @@
   }
   function setAccountMessage(message, type = '') {
     const node = $('#account-message');
-    node.textContent = message;
+    node.textContent = translateValue(message);
     node.className = 'account-message' + (type ? ' ' + type : '');
   }
   function renderAvatar(img, fallback, url, initial) {
@@ -545,7 +617,7 @@
       : user && Array.isArray(user.identities) && user.identities.some(identity => identity.provider === 'google') ? 'google' : 'email';
     const fullName = String(metadata.full_name || metadata.name || metadata.display_name || metadata.user_name || (email ? email.split('@')[0] : 'Гость'));
     const photo = String(metadata.avatar_url || metadata.picture || metadata.photo_url || '');
-    const initial = (fullName.trim() || email || 'F').charAt(0).toLocaleUpperCase('ru-RU');
+    const initial = (fullName.trim() || email || 'F').charAt(0).toLocaleUpperCase(localeForLanguage());
 
     $('#profile-title').textContent = email ? fullName : 'Гость';
     $('#profile-subtitle').textContent = email ? (cloudSyncStatus === 'synced' ? 'Синхронизировано' : cloudSyncStatus === 'error' ? 'Ошибка синхронизации' : cloudSyncStatus === 'checking' ? 'Проверяем облако…' : 'Аккаунт подключён') : 'Данные в браузере';
@@ -575,7 +647,7 @@
     }
     const createdAt = user && user.created_at ? new Date(user.created_at) : null;
     $('#account-profile-created').textContent = createdAt && !Number.isNaN(createdAt.getTime())
-      ? createdAt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+      ? createdAt.toLocaleDateString(localeForLanguage(), { day: 'numeric', month: 'long', year: 'numeric' })
       : 'Не указана';
 
     $('#account-logout').hidden = !email;
@@ -666,7 +738,7 @@
     return data;
   }
   function localSnapshot() {
-    return { habits, logs, journal, reminders, theme: document.documentElement.dataset.theme || 'light' };
+    return { habits, logs, journal, reminders, language, theme: document.documentElement.dataset.theme || 'light' };
   }
   function setDataOwner(owner) {
     dataOwner = owner || 'guest';
@@ -691,6 +763,8 @@
     logs = snapshot && snapshot.logs && typeof snapshot.logs === 'object' ? snapshot.logs : {};
     journal = snapshot && snapshot.journal && typeof snapshot.journal === 'object' ? snapshot.journal : {};
     reminders = snapshot && snapshot.reminders && typeof snapshot.reminders === 'object' ? snapshot.reminders : {};
+    if (snapshot && (snapshot.language === 'en' || snapshot.language === 'ru')) language = snapshot.language;
+    write(KEYS.language, language);
     write(KEYS.habits, habits);
     write(KEYS.logs, logs);
     write(KEYS.journal, journal);
@@ -756,6 +830,8 @@
         logs = remote.logs && typeof remote.logs === 'object' ? remote.logs : {};
         journal = remote.journal && typeof remote.journal === 'object' ? remote.journal : {};
         reminders = remote.reminders && typeof remote.reminders === 'object' ? remote.reminders : {};
+        if (remote.language === 'en' || remote.language === 'ru') language = remote.language;
+        write(KEYS.language, language);
         hydratingCloud = true;
         write(KEYS.habits, habits); write(KEYS.logs, logs); write(KEYS.journal, journal); write(KEYS.reminders, reminders);
         if (remote.theme === 'light' || remote.theme === 'dark') setTheme(remote.theme);
@@ -1080,7 +1156,7 @@
   function toast(message) {
     const node = $('#toast');
     if (!node) return;
-    node.textContent = message;
+    node.textContent = translateValue(message);
     node.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => node.classList.remove('show'), 2600);
@@ -1137,7 +1213,7 @@
     $('#journal-count').textContent = Object.values(journal).filter(item => item.text && item.text.trim()).length;
   }
   function exportData() {
-    const payload = { schema: 'forma-backup-v1', exportedAt: new Date().toISOString(), habits, logs, journal, reminders, theme: document.documentElement.dataset.theme || 'light' };
+    const payload = { schema: 'forma-backup-v1', exportedAt: new Date().toISOString(), habits, logs, journal, reminders, language, theme: document.documentElement.dataset.theme || 'light' };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1157,6 +1233,8 @@
       logs = payload.logs || {};
       journal = payload.journal || {};
       reminders = payload.reminders && typeof payload.reminders === 'object' ? payload.reminders : {};
+      if (payload.language === 'en' || payload.language === 'ru') language = payload.language;
+      write(KEYS.language, language);
       write(KEYS.habits, habits); write(KEYS.logs, logs); write(KEYS.journal, journal); write(KEYS.reminders, reminders);
       if (payload.theme === 'dark' || payload.theme === 'light') setTheme(payload.theme);
       renderAll();
@@ -1252,6 +1330,8 @@
     saveJournal();
   });
   $('#theme-toggle').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+  $('#language-toggle').addEventListener('click', () => setLanguage(language === 'en' ? 'ru' : 'en'));
+  setInterval(() => { const dateNode = $('#top-date'); if (dateNode) dateNode.textContent = formatHeaderDateTime(); }, 15000);
   $('#backup-btn').addEventListener('click', exportData);
   $('#restore-btn').addEventListener('click', () => $('#restore-file').click());
   $('#profile-avatar').addEventListener('dblclick', () => $('#restore-file').click());
