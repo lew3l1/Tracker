@@ -390,10 +390,10 @@
       note.textContent = 'Создай аккаунт, чтобы хранить привычки в облаке и открывать их на других устройствах.';
       if ($('#account-message').textContent.startsWith('Настрой Supabase')) setAccountMessage('', '');
     }
-    $('#account-form input').forEach(input => { input.disabled = !cloudConfigured(); });
+    $$('#account-form input').forEach(input => { input.disabled = !cloudConfigured(); });
     $('#account-submit').textContent = accountMode === 'login' ? 'Войти' : 'Создать аккаунт';
     $('#account-password').autocomplete = accountMode === 'login' ? 'current-password' : 'new-password';
-    $('#account-dialog [data-account-mode]').forEach(button => button.classList.toggle('active', button.dataset.accountMode === accountMode));
+    $$('#account-dialog [data-account-mode]').forEach(button => button.classList.toggle('active', button.dataset.accountMode === accountMode));
   }  function setAccountMode(mode) {
     accountMode = mode === 'signup' ? 'signup' : 'login';
     setAccountMessage('', '');
