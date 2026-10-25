@@ -259,3 +259,9 @@
   .focus-card .muted{font-size:10px;line-height:1.4;margin-bottom:8px}
   .sidebar-bottom{padding-top:7px}
 }
+
+/* Compact language switch in the top bar. */
+.language-btn{width:36px;height:36px;flex:none;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);font-size:10px;font-weight:850;letter-spacing:.35px;transition:border-color .18s,color .18s,background .18s}
+.language-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.language-btn:active{transform:scale(.96)}
+@media(max-width:560px){.top-actions{gap:7px}.language-btn{width:33px;height:33px;font-size:9px}.theme-btn,.account-btn{flex:none}}
