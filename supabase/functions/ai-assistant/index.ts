@@ -2,8 +2,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-supabase-api-version, x-requested-with, x-retry-count, traceparent, tracestate, baggage",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+  "Access-Control-Max-Age": "86400",
+  "Vary": "Origin",
   "Content-Type": "application/json; charset=utf-8",
 };
 
@@ -37,7 +39,7 @@ function withinRateLimit(userId: string): boolean {
 }
 
 Deno.serve(async (request: Request) => {
-  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
   if (request.method !== "POST") return json({ error: "Use POST." }, 405);
 
   const userId = getUserIdFromJwt(request);
@@ -83,7 +85,7 @@ Deno.serve(async (request: Request) => {
         instructions,
         input: messages.map(message => ({
           role: message.role,
-          content: [{ type: message.role === "assistant" ? "output_text" : "input_text", text: message.content }],
+          content: message.content,
         })),
         max_output_tokens: 700,
       }),
