@@ -63,10 +63,6 @@ create policy "Users can send friend requests as themselves"
   with check (
     (select auth.uid()) = sender_id
     and recipient_id <> (select auth.uid())
-    and not exists (
-      select 1 from public.friendships f
-      where (f.user_id = (select auth.uid()) and f.friend_id = recipient_id)
-    )
   );
 
 drop policy if exists "Request participants can cancel or decline" on public.friend_requests;
@@ -125,6 +121,7 @@ begin
   if exists (select 1 from public.profiles p where lower(p.username) = lower(v_username) and p.id <> new.id) then
     v_username := left(v_base, 11) || '_' || substring(replace(new.id::text, '-', '') from 1 for 8);
   end if;
+  if char_length(trim(v_name)) < 2 then v_name := 'Forma user'; end if;
   v_avatar := coalesce(new.raw_user_meta_data ->> 'avatar_url', new.raw_user_meta_data ->> 'picture', '');
   if v_avatar !~ '^https://' then v_avatar := null; end if;
   insert into public.profiles (id, username, display_name, avatar_url)
