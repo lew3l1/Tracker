@@ -506,13 +506,35 @@
     }
   }
 
-  function startGoogleSignIn() {
+  function base64UrlEncode(bytes) {
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  }
+  async function createPkcePair() {
+    if (!window.crypto || !crypto.subtle || !crypto.getRandomValues) {
+      throw new Error('Для безопасного входа Google нужен современный браузер и HTTPS (или localhost).');
+    }
+    const random = new Uint8Array(64);
+    crypto.getRandomValues(random);
+    const verifier = base64UrlEncode(random);
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+    return { verifier, challenge: base64UrlEncode(new Uint8Array(digest)) };
+  }
+
+  async function startGoogleSignIn() {
     if (!cloudConfigured()) {
       setAccountMessage('Сначала настрой Supabase: добавь URL и anon/publishable key в supabase-config.js. Затем включи Google в Authentication → Sign In / Providers.', 'error');
       return;
     }
+    const button = $('#google-signin');
+    if (button.disabled) return;
+    button.disabled = true;
+    setAccountMessage('Готовим безопасный вход через Google…');
     try {
       captureGuestSnapshot();
+      const pair = await createPkcePair();
+      sessionStorage.setItem('forma.oauth.pkce.verifier', pair.verifier);
       const config = supabaseConfig();
       const redirect = new URL(window.location.href);
       redirect.hash = '';
@@ -520,55 +542,80 @@
       authorize.searchParams.set('provider', 'google');
       authorize.searchParams.set('redirect_to', redirect.toString());
       authorize.searchParams.set('scopes', 'openid email profile');
-      // OAuth navigation cannot attach request headers, so pass only the public Supabase key.
+      authorize.searchParams.set('code_challenge', pair.challenge);
+      authorize.searchParams.set('code_challenge_method', 's256');
+      // This is the public Supabase publishable/anon key, never a secret key.
       authorize.searchParams.set('apikey', config.key);
-      $('#google-signin').disabled = true;
-      $('#google-signin').textContent = 'Переходим к Google…';
       window.location.assign(authorize.toString());
     } catch (error) {
       console.error('Не удалось запустить Google-вход Forma:', error);
+      sessionStorage.removeItem('forma.oauth.pkce.verifier');
       setAccountMessage(error.message || 'Не удалось начать вход через Google.', 'error');
       renderAccountUI();
     }
   }
 
   async function consumeGoogleCallback() {
-    const rawHash = window.location.hash.replace(/^#/, '');
-    if (!rawHash) return '';
-    const params = new URLSearchParams(rawHash);
-    const tokenPresent = params.has('access_token') || params.has('refresh_token');
-    const errorText = params.get('error_description') || params.get('error');
-    if (!tokenPresent && !errorText) return '';
+    const callbackUrl = new URL(window.location.href);
+    const rawHash = callbackUrl.hash.replace(/^#/, '');
+    const fragment = new URLSearchParams(rawHash);
+    const code = callbackUrl.searchParams.get('code');
+    const tokenPresent = fragment.has('access_token') || fragment.has('refresh_token');
+    const errorText = fragment.get('error_description') || fragment.get('error') ||
+      callbackUrl.searchParams.get('error_description') || callbackUrl.searchParams.get('error');
+    if (!code && !tokenPresent && !errorText) return '';
 
-    // Strip access and refresh tokens from the address bar as soon as we read them.
-    const clean = new URL(window.location.href);
+    // Remove one-time codes / tokens from the address bar before making further requests.
+    const clean = new URL(callbackUrl.href);
     clean.hash = '';
-    ['access_token', 'refresh_token', 'expires_in', 'expires_at', 'token_type', 'provider', 'provider_token', 'error', 'error_description', 'error_code'].forEach(key => clean.searchParams.delete(key));
+    ['code', 'state', 'access_token', 'refresh_token', 'expires_in', 'expires_at', 'token_type', 'provider', 'provider_token', 'error', 'error_description', 'error_code'].forEach(key => clean.searchParams.delete(key));
     window.history.replaceState({}, document.title, clean.pathname + clean.search);
 
-    if (errorText) throw new Error('Google-вход не завершён: ' + errorText.replace(/\+/g, ' '));
+    if (errorText) {
+      sessionStorage.removeItem('forma.oauth.pkce.verifier');
+      throw new Error('Google-вход не завершён: ' + errorText.replace(/\+/g, ' '));
+    }
     if (!cloudConfigured()) throw new Error('Supabase не настроен. Заполни supabase-config.js и повтори вход.');
-    const accessToken = params.get('access_token');
-    const refreshToken = params.get('refresh_token');
-    if (!accessToken || !refreshToken) throw new Error('Google вернул неполную сессию. Попробуй войти ещё раз.');
-
     const config = supabaseConfig();
-    const response = await fetch(config.url + '/auth/v1/user', {
-      headers: { apikey: config.key, Authorization: 'Bearer ' + accessToken }
-    });
-    const user = await response.json().catch(() => ({}));
-    if (!response.ok || !user.id) {
-      console.error('Не удалось получить Google-пользователя из Supabase:', response.status, user);
-      throw new Error('Google подтвердил вход, но Forma не смогла загрузить профиль. Проверь настройки Supabase и попробуй снова.');
+    let sessionData;
+
+    if (code) {
+      const verifier = sessionStorage.getItem('forma.oauth.pkce.verifier');
+      sessionStorage.removeItem('forma.oauth.pkce.verifier');
+      if (!verifier) throw new Error('Не найдена временная проверка PKCE. Начни вход через Google заново.');
+      const response = await fetch(config.url + '/auth/v1/token?grant_type=pkce', {
+        method: 'POST',
+        headers: { apikey: config.key, Authorization: 'Bearer ' + config.key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auth_code: code, code_verifier: verifier })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        console.error('Не удалось обменять OAuth code на сессию:', response.status, data);
+        throw new Error(data.msg || data.message || data.error_description || 'Не удалось завершить вход через Google. Проверь настройки OAuth и повтори попытку.');
+      }
+      sessionData = data;
+    } else {
+      // Backward compatibility for a session returned in the URL fragment.
+      const accessToken = fragment.get('access_token');
+      const refreshToken = fragment.get('refresh_token');
+      if (!accessToken || !refreshToken) throw new Error('Google вернул неполную сессию. Попробуй войти ещё раз.');
+      const response = await fetch(config.url + '/auth/v1/user', {
+        headers: { apikey: config.key, Authorization: 'Bearer ' + accessToken }
+      });
+      const user = await response.json().catch(() => ({}));
+      if (!response.ok || !user.id) {
+        console.error('Не удалось получить Google-пользователя из Supabase:', response.status, user);
+        throw new Error('Google подтвердил вход, но Forma не смогла загрузить профиль. Проверь настройки Supabase и попробуй снова.');
+      }
+      sessionData = {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        token_type: fragment.get('token_type') || 'bearer',
+        expires_in: Number(fragment.get('expires_in') || 3600),
+        user
+      };
     }
 
-    const sessionData = {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      token_type: params.get('token_type') || 'bearer',
-      expires_in: Number(params.get('expires_in') || 3600),
-      user
-    };
     if (!keepSession(sessionData)) throw new Error('Не удалось сохранить сессию Google. Попробуй ещё раз.');
     toast('Вход через Google выполнен');
     return '';
