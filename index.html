@@ -194,6 +194,7 @@
     </section>
     <div class="account-tabs"><button type="button" class="active" data-account-mode="login">Войти</button><button type="button" data-account-mode="signup">Создать аккаунт</button></div>
     <div class="cloud-note" id="account-cloud-note">Для облачного аккаунта нужно подключить Supabase. Пока проект работает в локальном режиме, и данные остаются в этом браузере.</div>
+    <button type="button" class="btn subtle account-sync-retry" id="account-sync-retry" hidden>Повторить синхронизацию</button>
     <form id="account-form">
       <label class="field-label" for="account-email">Электронная почта</label><input class="input" id="account-email" type="email" autocomplete="username" placeholder="you@example.com" required>
       <label class="field-label" for="account-password">Пароль</label><input class="input" id="account-password" type="password" autocomplete="current-password" minlength="8" placeholder="Минимум 8 символов" required>
