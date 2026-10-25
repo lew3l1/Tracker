@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const KEYS = { habits: 'forma.habits.v1', logs: 'forma.logs.v1', journal: 'forma.journal.v1', theme: 'forma.theme.v1', auth: 'forma.auth.session.v1', owner: 'forma.data.owner.v1' };
+  const KEYS = { habits: 'forma.habits.v1', logs: 'forma.logs.v1', journal: 'forma.journal.v1', reminders: 'forma.reminders.v1', theme: 'forma.theme.v1', auth: 'forma.auth.session.v1', owner: 'forma.data.owner.v1' };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const categories = ['Здоровье', 'Развитие', 'Фокус', 'Осознанность'];
@@ -57,7 +57,7 @@
   function write(key, value) {
     try {
       localStorage.setItem(key, JSON.stringify(value));
-      if ([KEYS.habits, KEYS.logs, KEYS.journal].includes(key)) scheduleCloudSync();
+      if ([KEYS.habits, KEYS.logs, KEYS.journal, KEYS.reminders].includes(key)) scheduleCloudSync();
       return true;
     } catch (error) {
       console.error('Не удалось сохранить данные:', error);
@@ -88,6 +88,17 @@
   }
   let logs = read(KEYS.logs, {});
   let journal = read(KEYS.journal, {});
+  let reminders = read(KEYS.reminders, {});
+  if (!reminders || typeof reminders !== 'object' || Array.isArray(reminders)) reminders = {};
+  let focusMode = 'focus';
+  let focusDuration = 25 * 60;
+  let focusRemaining = 25 * 60;
+  let focusRunning = false;
+  let focusEndAt = 0;
+  let focusInterval = 0;
+  let focusHabitId = '';
+  let focusStatusMessage = 'Таймер готов к запуску.';
+  const focusDurations = { focus: 25 * 60, short: 5 * 60, long: 15 * 60 };
   let selectedDate = todayKey();
   let activeView = 'today';
   let activeFilter = 'Все';
@@ -143,7 +154,7 @@
   }
   function saveLogs() { write(KEYS.logs, logs); }
   function navigate(view) {
-    if (!['today', 'habits', 'table', 'insights', 'journal'].includes(view)) return;
+    if (!['today', 'habits', 'table', 'insights', 'journal', 'focus'].includes(view)) return;
     activeView = view;
     $$('.view').forEach(section => {
       const active = section.id === 'view-' + view;
@@ -151,7 +162,7 @@
       section.classList.toggle('active', active);
     });
     $$('.nav-link').forEach(button => button.classList.toggle('active', button.dataset.view === view));
-    $('#crumb').textContent = ({ today: 'Мой день', habits: 'Привычки', table: 'Таблица', insights: 'Моя динамика', journal: 'Дневник' })[view];
+    $('#crumb').textContent = ({ today: 'Мой день', habits: 'Привычки', table: 'Таблица', insights: 'Моя динамика', journal: 'Дневник', focus: 'Фокус и напоминания' })[view];
     renderAll();
   }
   function setHabitState(id, day, done) {
@@ -271,6 +282,205 @@
     $('#journal-prev').disabled = selectedDate <= '2000-01-01';
     $('#journal-next').disabled = selectedDate >= todayKey();
   }
+
+  function formatFocusTime(seconds) {
+    const safe = Math.max(0, Math.ceil(seconds));
+    return String(Math.floor(safe / 60)).padStart(2, '0') + ':' + String(safe % 60).padStart(2, '0');
+  }
+  function renderFocusTimer() {
+    const face = $('#focus-timer-face');
+    if (!face) return;
+    $('#focus-timer-display').textContent = formatFocusTime(focusRemaining);
+    face.style.setProperty('--timer-progress', Math.max(0, Math.min(100, focusRemaining / Math.max(focusDuration, 1) * 100)) + '%');
+    face.setAttribute('aria-label', 'Осталось ' + formatFocusTime(focusRemaining));
+    $('#focus-timer-caption').textContent = focusMode === 'focus' ? 'Пора сосредоточиться' : 'Время немного отдохнуть';
+    $('#focus-toggle').textContent = focusRunning ? 'Ⅱ Пауза' : (focusRemaining > 0 && focusRemaining < focusDuration ? '▶ Продолжить' : '▶ Начать фокус');
+    $('#focus-session-status').textContent = focusRunning ? (focusMode === 'focus' ? 'Идёт сессия фокусировки. Не отвлекайся на лишнее.' : 'Идёт время отдыха. Перезарядись без спешки.') : focusStatusMessage;
+    $('[data-focus-mode]').forEach(button => button.classList.toggle('active', button.dataset.focusMode === focusMode));
+  }
+  function renderFocus() {
+    const select = $('#focus-habit');
+    if (!select) return;
+    const previous = select.value || focusHabitId;
+    select.innerHTML = habits.length
+      ? habits.map(habit => '<option value="' + escapeHtml(habit.id) + '">' + escapeHtml(habit.emoji + ' ' + habit.name) + '</option>').join('')
+      : '<option value="">Сначала добавь привычку</option>';
+    focusHabitId = habits.some(habit => habit.id === previous) ? previous : (habits[0] ? habits[0].id : '');
+    select.value = focusHabitId;
+    select.disabled = !habits.length;
+    const selectedHabit = habits.find(habit => habit.id === focusHabitId);
+    $('#focus-hint').textContent = selectedHabit
+      ? (selectedHabit.description || selectedHabit.category) + (isDone(selectedHabit.id, todayKey()) ? ' · Уже выполнено сегодня — отличная работа.' : '')
+      : 'Добавь привычку, чтобы связать фокус-сессию с конкретным действием.';
+    const permissionAvailable = 'Notification' in window;
+    const permission = permissionAvailable ? Notification.permission : 'unsupported';
+    $('#enable-notifications').disabled = !permissionAvailable || permission === 'denied' || permission === 'granted';
+    $('#enable-notifications').textContent = !permissionAvailable ? 'Недоступно' : permission === 'granted' ? 'Включено ✓' : permission === 'denied' ? 'Заблокировано' : 'Разрешить';
+    $('#notification-title').textContent = !permissionAvailable ? 'Уведомления недоступны' : permission === 'granted' ? 'Уведомления разрешены' : permission === 'denied' ? 'Уведомления заблокированы' : 'Браузерные уведомления';
+    $('#notification-description').textContent = !permissionAvailable
+      ? 'Этот браузер не поддерживает системные уведомления. Напоминания будут доступны в интерфейсе Forma после включения разрешений в поддерживаемом браузере.'
+      : permission === 'granted'
+        ? 'Готово! Forma сможет показывать системные напоминания, пока страница открыта.'
+        : permission === 'denied'
+          ? 'Разрешение запрещено в настройках браузера. Нажми на значок настроек сайта рядом с адресом и разреши уведомления.'
+          : 'Разреши системные уведомления, чтобы Forma могла напоминать о привычках.';
+    $('#reminder-list').innerHTML = habits.length ? habits.map(habit => {
+      const setting = reminders[habit.id] || {};
+      const enabled = setting.enabled === true;
+      const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(setting.time || '') ? setting.time : '09:00';
+      const done = isDone(habit.id, todayKey());
+      return '<div class="reminder-row ' + (enabled ? 'enabled' : '') + '"><span class="reminder-emoji">' + escapeHtml(habit.emoji) + '</span><div class="reminder-info"><strong>' + escapeHtml(habit.name) + '</strong><small>' + (done ? 'Выполнено сегодня ✓' : enabled ? 'Напомним сегодня, если ещё не отмечено' : escapeHtml(habit.category)) + '</small></div><input class="input reminder-time" type="time" value="' + time + '" data-reminder-time="' + escapeHtml(habit.id) + '" aria-label="Время напоминания для ' + escapeHtml(habit.name) + '"><input class="reminder-switch" type="checkbox" role="switch" data-reminder-toggle="' + escapeHtml(habit.id) + '" aria-label="Включить напоминание для ' + escapeHtml(habit.name) + '" ' + (enabled ? 'checked' : '') + '></div>';
+    }).join('') : '<div class="empty-state"><strong>Пока нет привычек</strong>Создай привычку, и здесь можно будет настроить напоминание.</div>';
+    renderFocusTimer();
+  }
+  function setFocusMode(mode) {
+    if (!Object.prototype.hasOwnProperty.call(focusDurations, mode)) return;
+    if (focusInterval) clearInterval(focusInterval);
+    focusInterval = 0;
+    focusRunning = false;
+    focusMode = mode;
+    focusDuration = focusDurations[mode];
+    focusRemaining = focusDuration;
+    focusStatusMessage = mode === 'focus' ? 'Таймер готов к запуску.' : 'Отдых тоже часть прогресса.';
+    renderFocusTimer();
+  }
+  function toggleFocusTimer() {
+    if (focusRunning) {
+      focusRemaining = Math.max(0, Math.ceil((focusEndAt - Date.now()) / 1000));
+      focusRunning = false;
+      if (focusInterval) clearInterval(focusInterval);
+      focusInterval = 0;
+      focusStatusMessage = 'Таймер на паузе. Продолжи, когда будешь готов.';
+      renderFocusTimer();
+      return;
+    }
+    if (focusRemaining <= 0) focusRemaining = focusDuration;
+    focusEndAt = Date.now() + focusRemaining * 1000;
+    focusRunning = true;
+    focusStatusMessage = 'Сессия запущена.';
+    if (focusInterval) clearInterval(focusInterval);
+    focusInterval = setInterval(tickFocusTimer, 1000);
+    renderFocusTimer();
+  }
+  function resetFocusTimer() {
+    if (focusInterval) clearInterval(focusInterval);
+    focusInterval = 0;
+    focusRunning = false;
+    focusRemaining = focusDuration;
+    focusStatusMessage = 'Таймер сброшен и готов к запуску.';
+    renderFocusTimer();
+  }
+  function tickFocusTimer() {
+    if (!focusRunning) return;
+    focusRemaining = Math.max(0, Math.ceil((focusEndAt - Date.now()) / 1000));
+    if (focusRemaining <= 0) {
+      focusRemaining = 0;
+      focusRunning = false;
+      if (focusInterval) clearInterval(focusInterval);
+      focusInterval = 0;
+      focusStatusMessage = focusMode === 'focus' ? 'Время вышло — отличная работа! Сделай короткую паузу.' : 'Пауза завершена. Возвращайся в своём темпе.';
+      toast(focusStatusMessage);
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification('Forma · время вышло', { body: focusStatusMessage, icon: 'favicon.svg', tag: 'forma-focus-timer' });
+        } catch (error) { console.warn('Не удалось показать уведомление таймера:', error); }
+      }
+    }
+    renderFocusTimer();
+  }
+  async function enableBrowserNotifications() {
+    if (!('Notification' in window)) {
+      toast('Этот браузер не поддерживает уведомления.');
+      return;
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      renderFocus();
+      if (permission === 'granted') {
+        toast('Уведомления включены');
+        checkHabitReminders();
+      } else if (permission === 'denied') {
+        toast('Разреши уведомления в настройках браузера');
+      } else {
+        toast('Разрешение на уведомления не выдано');
+      }
+    } catch (error) {
+      console.error('Не удалось запросить уведомления:', error);
+      toast('Не удалось включить уведомления');
+    }
+  }
+  async function setHabitReminder(habitId, enabled) {
+    if (!reminders[habitId]) reminders[habitId] = { enabled: false, time: '09:00', lastNotifiedDate: '' };
+    if (enabled && 'Notification' in window && Notification.permission !== 'granted') {
+      if (Notification.permission === 'denied') {
+        toast('Сначала разреши уведомления в настройках браузера');
+        renderFocus();
+        return;
+      }
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          toast('Для напоминаний нужно разрешить системные уведомления');
+          renderFocus();
+          return;
+        }
+      } catch (error) {
+        toast('Не удалось запросить разрешение на уведомления');
+        renderFocus();
+        return;
+      }
+    }
+    if (enabled && !('Notification' in window)) {
+      toast('Этот браузер не поддерживает уведомления');
+      renderFocus();
+      return;
+    }
+    reminders[habitId].enabled = enabled;
+    write(KEYS.reminders, reminders);
+    renderFocus();
+    toast(enabled ? 'Напоминание включено' : 'Напоминание выключено');
+    if (enabled) checkHabitReminders();
+  }
+  function saveHabitReminderTime(habitId, time) {
+    if (!reminders[habitId]) reminders[habitId] = { enabled: false, time: '09:00', lastNotifiedDate: '' };
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return;
+    if (reminders[habitId].time !== time) reminders[habitId].lastNotifiedDate = '';
+    reminders[habitId].time = time;
+    write(KEYS.reminders, reminders);
+    const row = $('[data-reminder-time="' + CSS.escape(habitId) + '"]')?.closest('.reminder-row');
+    if (row) row.classList.toggle('enabled', reminders[habitId].enabled === true);
+    toast('Время напоминания сохранено');
+    checkHabitReminders();
+  }
+  function checkHabitReminders() {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    const today = todayKey();
+    let changed = false;
+    habits.forEach(habit => {
+      const setting = reminders[habit.id];
+      if (!setting || setting.enabled !== true || isDone(habit.id, today) || setting.lastNotifiedDate === today) return;
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(setting.time || '')) return;
+      const parts = setting.time.split(':').map(Number);
+      if (currentTime < parts[0] * 60 + parts[1]) return;
+      setting.lastNotifiedDate = today;
+      changed = true;
+      try {
+        const notification = new Notification('Forma · время для привычки', {
+          body: habit.emoji + ' ' + habit.name + ' — найди пару минут для себя.',
+          icon: 'favicon.svg',
+          tag: 'forma-reminder-' + habit.id
+        });
+        notification.onclick = () => {
+          window.focus();
+          navigate('today');
+        };
+      } catch (error) { console.warn('Не удалось показать напоминание:', error); }
+    });
+    if (changed) write(KEYS.reminders, reminders);
+  }
+
   function renderAll() {
     renderHeader();
     renderToday();
@@ -278,6 +488,7 @@
     renderMatrix();
     renderInsights();
     renderJournal();
+    renderFocus();
     renderAccountUI();
     $('#go-today').disabled = selectedDate === todayKey();
     $('#journal-today').disabled = selectedDate === todayKey();
@@ -455,7 +666,7 @@
     return data;
   }
   function localSnapshot() {
-    return { habits, logs, journal, theme: document.documentElement.dataset.theme || 'light' };
+    return { habits, logs, journal, reminders, theme: document.documentElement.dataset.theme || 'light' };
   }
   function setDataOwner(owner) {
     dataOwner = owner || 'guest';
@@ -479,9 +690,11 @@
     habits = snapshot && Array.isArray(snapshot.habits) ? snapshot.habits : seedHabits.map(habit => ({ ...habit }));
     logs = snapshot && snapshot.logs && typeof snapshot.logs === 'object' ? snapshot.logs : {};
     journal = snapshot && snapshot.journal && typeof snapshot.journal === 'object' ? snapshot.journal : {};
+    reminders = snapshot && snapshot.reminders && typeof snapshot.reminders === 'object' ? snapshot.reminders : {};
     write(KEYS.habits, habits);
     write(KEYS.logs, logs);
     write(KEYS.journal, journal);
+    write(KEYS.reminders, reminders);
     if (snapshot && (snapshot.theme === 'light' || snapshot.theme === 'dark')) setTheme(snapshot.theme);
     setDataOwner(owner);
     hydratingCloud = false;
@@ -542,8 +755,9 @@
         habits = Array.isArray(remote.habits) ? remote.habits : habits;
         logs = remote.logs && typeof remote.logs === 'object' ? remote.logs : {};
         journal = remote.journal && typeof remote.journal === 'object' ? remote.journal : {};
+        reminders = remote.reminders && typeof remote.reminders === 'object' ? remote.reminders : {};
         hydratingCloud = true;
-        write(KEYS.habits, habits); write(KEYS.logs, logs); write(KEYS.journal, journal);
+        write(KEYS.habits, habits); write(KEYS.logs, logs); write(KEYS.journal, journal); write(KEYS.reminders, reminders);
         if (remote.theme === 'light' || remote.theme === 'dark') setTheme(remote.theme);
         setDataOwner(session.user.id);
         cloudSyncStatus = 'synced';
@@ -554,7 +768,7 @@
         // A brand-new account receives the current guest data once; an existing account
         // never imports another profile's local cache implicitly.
         if (!wasGuest && dataOwner !== session.user.id) {
-          applyLocalSnapshot({ habits: seedHabits.map(habit => ({ ...habit })), logs: {}, journal: {}, theme: document.documentElement.dataset.theme || 'light' }, session.user.id);
+          applyLocalSnapshot({ habits: seedHabits.map(habit => ({ ...habit })), logs: {}, journal: {}, reminders: {}, theme: document.documentElement.dataset.theme || 'light' }, session.user.id);
         } else if (wasGuest) {
           try { localStorage.setItem('forma.guest.backup.v1', JSON.stringify({ schema: 'forma-guest-v1', savedAt: new Date().toISOString(), ...localBeforeSync })); }
           catch (error) { console.warn('Не удалось сохранить гостевую копию.', error); }
@@ -901,6 +1115,7 @@
     const habit = habits.find(h => h.id === id);
     if (!habit || !window.confirm('Удалить привычку «' + habit.name + '»? История её отметок тоже будет удалена.')) return;
     habits = habits.filter(h => h.id !== id);
+    if (reminders[id]) { delete reminders[id]; write(KEYS.reminders, reminders); }
     Object.keys(logs).forEach(day => {
       if (logs[day]) {
         delete logs[day][id];
@@ -922,7 +1137,7 @@
     $('#journal-count').textContent = Object.values(journal).filter(item => item.text && item.text.trim()).length;
   }
   function exportData() {
-    const payload = { schema: 'forma-backup-v1', exportedAt: new Date().toISOString(), habits, logs, journal, theme: document.documentElement.dataset.theme || 'light' };
+    const payload = { schema: 'forma-backup-v1', exportedAt: new Date().toISOString(), habits, logs, journal, reminders, theme: document.documentElement.dataset.theme || 'light' };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -941,7 +1156,8 @@
       habits = payload.habits;
       logs = payload.logs || {};
       journal = payload.journal || {};
-      write(KEYS.habits, habits); write(KEYS.logs, logs); write(KEYS.journal, journal);
+      reminders = payload.reminders && typeof payload.reminders === 'object' ? payload.reminders : {};
+      write(KEYS.habits, habits); write(KEYS.logs, logs); write(KEYS.journal, journal); write(KEYS.reminders, reminders);
       if (payload.theme === 'dark' || payload.theme === 'light') setTheme(payload.theme);
       renderAll();
       toast('Резервная копия восстановлена');
@@ -971,6 +1187,8 @@
     if (edit) openHabitDialog(habits.find(h => h.id === edit.dataset.edit));
     const del = event.target.closest('[data-delete]');
     if (del) deleteHabit(del.dataset.delete);
+    const focusModeButton = event.target.closest('[data-focus-mode]');
+    if (focusModeButton) setFocusMode(focusModeButton.dataset.focusMode);
     const accountTab = event.target.closest('[data-account-mode]');
     if (accountTab) setAccountMode(accountTab.dataset.accountMode);
     const askShortcut = event.target.closest('[data-ask]');
@@ -1003,6 +1221,20 @@
       $$('[data-range]').forEach(button => button.classList.toggle('active', Number(button.dataset.range) === insightRange));
     }
   });
+  $('#focus-toggle').addEventListener('click', toggleFocusTimer);
+  $('#focus-reset').addEventListener('click', resetFocusTimer);
+  $('#focus-habit').addEventListener('change', event => { focusHabitId = event.target.value; renderFocus(); });
+  $('#enable-notifications').addEventListener('click', enableBrowserNotifications);
+  document.addEventListener('change', event => {
+    const toggle = event.target.closest('[data-reminder-toggle]');
+    if (toggle) { setHabitReminder(toggle.dataset.reminderToggle, toggle.checked); return; }
+    const timeInput = event.target.closest('[data-reminder-time]');
+    if (timeInput) saveHabitReminderTime(timeInput.dataset.reminderTime, timeInput.value);
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) { tickFocusTimer(); checkHabitReminders(); }
+  });
+  setInterval(checkHabitReminders, 15000);
   $('#add-habit').addEventListener('click', () => openHabitDialog());
   $('#add-from-today').addEventListener('click', () => openHabitDialog());
   $('#close-dialog').addEventListener('click', closeHabitDialog);
