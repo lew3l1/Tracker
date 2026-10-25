@@ -199,3 +199,63 @@
 #view-focus[hidden]{display:none!important}
 @media(min-width:1050px){.focus-workspace{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)}}
 @media(max-width:700px){.focus-timer-layout{grid-template-columns:1fr;gap:20px}.focus-timer-face{width:min(72vw,235px)}.focus-timer-controls{width:100%}.focus-mode-switch{display:grid;grid-template-columns:1fr}.focus-mode-switch button{text-align:left}.notification-permission{align-items:flex-start;flex-wrap:wrap}.notification-copy{flex-basis:calc(100% - 60px)}.notification-permission .btn{margin-left:55px}.reminder-row{gap:8px;padding:9px}.reminder-emoji{width:33px;height:33px;font-size:17px}.reminder-info strong{font-size:11px}.reminder-time{width:90px;padding:7px 5px}.reminder-info small{font-size:9px}}
+
+/* Refined focus timer layout: larger clock with mode controls directly below it. */
+.focus-timer-card{align-self:start}
+.focus-timer-layout{grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);gap:25px;align-items:center;max-width:none;margin:0}
+.focus-timer-left{display:flex;flex-direction:column;align-items:center;gap:14px;min-width:0;width:100%}
+.focus-timer-face{width:min(100%,320px);padding:13px}
+.focus-mode-switch{display:grid;grid-template-columns:1fr;gap:7px;width:min(100%,320px);margin:0}
+.focus-mode-switch button{text-align:center;width:100%;padding:10px 12px}
+.focus-session-status{width:min(100%,320px);margin:0;padding:10px 2px 0;text-align:center;line-height:1.55}
+.focus-timer-controls{width:100%;align-self:center}
+.focus-timer-controls .input{min-width:0}
+.focus-actions .btn{white-space:nowrap}
+@media(min-width:1050px){
+  .focus-workspace{grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);align-items:start}
+}
+@media(min-width:701px) and (max-width:1120px){
+  .focus-timer-layout{grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);gap:18px}
+  .focus-timer-face{width:min(100%,290px)}
+  .focus-mode-switch button{font-size:10px;padding:9px 7px}
+  .focus-actions{gap:6px}
+  .focus-actions .btn{padding:9px 10px;font-size:11px}
+}
+@media(max-width:700px){
+  .focus-timer-layout{grid-template-columns:minmax(0,1fr);gap:22px}
+  .focus-timer-left{gap:12px}
+  .focus-timer-face{width:min(82vw,300px)}
+  .focus-mode-switch{grid-template-columns:1fr;width:min(100%,330px)}
+  .focus-mode-switch button{text-align:center;font-size:11px}
+  .focus-session-status{width:100%}
+  .focus-timer-controls{padding-top:3px}
+  .focus-actions .btn{flex:1}
+}
+/* Keep the desktop navigation reachable in short windows and on scaled displays. */
+.sidebar{height:100vh;height:100dvh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.sidebar .brand,.sidebar .side-label,.sidebar .nav-link,.sidebar .focus-card,.sidebar .sidebar-bottom{flex-shrink:0}
+@media(min-width:641px) and (max-height:900px){
+  .sidebar{padding-top:17px;padding-bottom:12px}
+  .brand{margin-bottom:24px}
+  .side-label{margin-bottom:8px}
+  .nav{gap:3px}
+  .nav-link{padding-top:9px;padding-bottom:9px;gap:9px}
+  .focus-card{margin-top:19px;padding:12px}
+  .focus-title{margin-top:8px}
+  .focus-card .muted{font-size:11px;line-height:1.5;margin-bottom:11px}
+  .sidebar-bottom{padding-top:10px}
+}
+@media(min-width:641px) and (max-height:700px){
+  .sidebar{padding-top:10px;padding-bottom:8px}
+  .brand{margin-bottom:14px}
+  .brand-mark{width:30px;height:30px}
+  .side-label{font-size:9px;margin-bottom:5px}
+  .nav{gap:2px}
+  .nav-link{padding:7px 9px;gap:8px}
+  .nav-link>span{font-size:17px}
+  .focus-card{margin-top:11px;padding:10px}
+  .spark{width:25px;height:25px}
+  .focus-title{font-size:13px;margin:6px 0 3px}
+  .focus-card .muted{font-size:10px;line-height:1.4;margin-bottom:8px}
+  .sidebar-bottom{padding-top:7px}
+}
