@@ -262,7 +262,7 @@
     const entry = journal[selectedDate] || {};
     $('#journal-date-label').textContent = fmt(selectedDate, { weekday: 'long', day: 'numeric', month: 'long' });
     $('#journal-entry').value = entry.text || '';
-    $$('#moods button').forEach(button => button.classList.toggle('active', button.dataset.mood === entry.mood));
+    $$$('#moods button').forEach(button => button.classList.toggle('active', button.dataset.mood === entry.mood));
     $('#journal-count').textContent = Object.values(journal).filter(item => item.text && item.text.trim()).length;
     $('#journal-done').textContent = doneCount();
     $('#save-state').textContent = '● Сохранено локально';
@@ -279,8 +279,8 @@
     renderAccountUI();
     $('#go-today').disabled = selectedDate === todayKey();
     $('#journal-today').disabled = selectedDate === todayKey();
-    $$('[data-range]').forEach(button => button.classList.toggle('active', Number(button.dataset.range) === insightRange));
-    $$('#today-filters [data-category]').forEach(button => button.classList.toggle('active', button.dataset.category === activeFilter));
+    $$$('[data-range]').forEach(button => button.classList.toggle('active', Number(button.dataset.range) === insightRange));
+    $$$('#today-filters [data-category]').forEach(button => button.classList.toggle('active', button.dataset.category === activeFilter));
   }
 
   function supabaseConfig() {
@@ -320,10 +320,10 @@
       note.textContent = 'Создай аккаунт, чтобы хранить привычки в облаке и открывать их на других устройствах.';
       if ($('#account-message').textContent.startsWith('Настрой Supabase')) setAccountMessage('', '');
     }
-    $('#account-form input').forEach(input => { input.disabled = !cloudConfigured(); });
+    $$('#account-form input').forEach(input => { input.disabled = !cloudConfigured(); });
     $('#account-submit').textContent = accountMode === 'login' ? 'Войти' : 'Создать аккаунт';
     $('#account-password').autocomplete = accountMode === 'login' ? 'current-password' : 'new-password';
-    $('#account-dialog [data-account-mode]').forEach(button => button.classList.toggle('active', button.dataset.accountMode === accountMode));
+    $$('#account-dialog [data-account-mode]').forEach(button => button.classList.toggle('active', button.dataset.accountMode === accountMode));
   }
   function setAccountMode(mode) {
     accountMode = mode === 'signup' ? 'signup' : 'login';
@@ -700,11 +700,11 @@
     if (filter && filter.closest('#today-filters')) {
       activeFilter = filter.dataset.category;
       renderToday();
-      $('#today-filters [data-category]').forEach(button => button.classList.toggle('active', button === filter));
+      $$('#today-filters [data-category]').forEach(button => button.classList.toggle('active', button === filter));
     }
     const mood = event.target.closest('[data-mood]');
     if (mood) {
-      $('#moods button').forEach(button => button.classList.toggle('active', button === mood));
+      $$('#moods button').forEach(button => button.classList.toggle('active', button === mood));
       saveJournal();
     }
     const prompt = event.target.closest('[data-prompt]');
@@ -718,7 +718,7 @@
     if (rangeButton) {
       insightRange = Number(rangeButton.dataset.range);
       renderInsights();
-      $('[data-range]').forEach(button => button.classList.toggle('active', Number(button.dataset.range) === insightRange));
+      $$('[data-range]').forEach(button => button.classList.toggle('active', Number(button.dataset.range) === insightRange));
     }
   });
   $('#add-habit').addEventListener('click', () => openHabitDialog());
