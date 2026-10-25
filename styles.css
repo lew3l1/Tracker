@@ -111,7 +111,7 @@
   .sidebar .profile-account{justify-content:center;flex:none}
   .sidebar .profile-copy{display:none}
   .sidebar .sidebar-tools{display:flex;flex-direction:column;gap:4px}
-  .sidebar .sidebar-tools .icon-btn{width:28px;height:28px}
+  .sidebar .sidebar-tools .icon-btn{display:grid;width:28px;height:28px}
   .main{margin-left:78px}
 }
 @media(max-width:640px){
