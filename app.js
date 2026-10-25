@@ -910,6 +910,7 @@
     $('#friend-incoming-count').textContent = String(communityIncoming.length);
     $('#friend-outgoing-count').textContent = String(communityOutgoing.length);
     $('#friend-list-count').textContent = String(communityFriends.length);
+    $('#community-refresh').disabled = communityLoading || communityActionBusy;
 
     const searchResults = $('#friend-search-results');
     if (communitySearchLoading) searchResults.innerHTML = '<p class="community-empty">' + communityText('Ищем пользователей…') + '</p>';
@@ -1749,6 +1750,7 @@
   $('#friend-profile-form').addEventListener('submit', saveCommunityProfile);
   $('#friend-search-form').addEventListener('submit', searchCommunity);
   $('#community-login-btn').addEventListener('click', () => { renderAccountUI(); $('#account-dialog').showModal(); });
+  $('#community-refresh').addEventListener('click', () => loadCommunity());
   $('#google-signin').addEventListener('click', startGoogleSignIn);
   $('#account-logout').addEventListener('click', signOutAccount);
 
