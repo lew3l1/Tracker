@@ -297,31 +297,19 @@
 }
 
 
-/* Forma startup screen with an animated blue whale. */
-.loading-screen{position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:24px;background:radial-gradient(ellipse at 50% 38%,rgba(83,185,244,.16),transparent 48%),var(--bg);color:var(--text);opacity:1;visibility:visible;transition:opacity .42s ease,visibility .42s ease}
+/* Minimal, fast Forma loading screen: mark + progress bar only. */
+.loading-screen{position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px;background:var(--bg);color:var(--text);opacity:1;visibility:visible;transition:opacity .18s ease,visibility .18s ease}
 .loading-screen.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
-.loading-scene{position:relative;width:230px;height:176px;display:grid;place-items:center;margin-bottom:13px}
-.loading-whale{width:200px;max-width:88%;height:auto;overflow:visible;filter:drop-shadow(0 15px 19px rgba(37,126,206,.16));animation:whale-float 2.6s ease-in-out infinite}
-.loading-whale .whale-water{animation:whale-spout 2.6s ease-in-out infinite;transform-origin:110px 21px}
-.loading-bubble{position:absolute;display:block;border:1.5px solid rgba(71,180,235,.72);border-radius:50%;animation:bubble-rise 3.2s ease-in-out infinite}
-.bubble-one{width:9px;height:9px;left:20px;top:88px}
-.bubble-two{width:6px;height:6px;right:22px;top:68px;animation-delay:.8s}
-.bubble-three{width:12px;height:12px;right:34px;top:112px;animation-delay:1.5s}
-.loading-ripple{position:absolute;left:50%;bottom:3px;border:1px solid rgba(70,164,220,.27);border-radius:50%;transform:translateX(-50%);width:144px;height:15px;animation:ripple 2.6s ease-in-out infinite}
-.ripple-two{width:184px;height:21px;bottom:-2px;animation-delay:1.3s;opacity:.5}
-.loading-wordmark{font-size:32px;letter-spacing:-1.3px;font-weight:820;line-height:1.2}
-.loading-wordmark span{color:#368ed5}
-.loading-caption{font-size:14px;font-weight:600;color:var(--muted);margin:11px 0 22px;text-align:center}
-.loading-progress{width:145px;height:4px;background:var(--line);border-radius:10px;overflow:hidden}
-.loading-progress span{display:block;width:42%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#55c8f3,#357fe0);animation:loading-sweep 1.5s ease-in-out infinite}
-.loading-footnote{margin-top:18px;font-size:11px;color:var(--faint);letter-spacing:.2px}
-@keyframes whale-float{0%,100%{transform:translateY(2px) rotate(-1deg)}50%{transform:translateY(-7px) rotate(1deg)}}
-@keyframes whale-spout{0%,100%{opacity:.7;transform:translateY(2px)}50%{opacity:1;transform:translateY(-3px)}}
-@keyframes bubble-rise{0%,100%{transform:translateY(6px);opacity:.35}50%{transform:translateY(-10px);opacity:1}}
-@keyframes ripple{0%,100%{transform:translateX(-50%) scaleX(.94);opacity:.4}50%{transform:translateX(-50%) scaleX(1.06);opacity:.8}}
-@keyframes loading-sweep{0%{transform:translateX(-115%)}100%{transform:translateX(350%)}}
-@media(prefers-reduced-motion:reduce){.loading-whale,.loading-whale .whale-water,.loading-bubble,.loading-ripple,.loading-progress span{animation:none}.loading-screen{transition:none}}
-
+.loading-mark{width:132px;height:100px;display:grid;place-items:center}
+.loading-whale{display:block;width:132px;height:auto;overflow:visible;filter:drop-shadow(0 8px 16px rgba(37,126,206,.14));animation:whale-float 1.8s ease-in-out infinite}
+.loading-whale .whale-water{animation:whale-spout 1.8s ease-in-out infinite;transform-origin:110px 21px}
+.loading-progress{width:132px;height:4px;background:var(--line);border-radius:10px;overflow:hidden}
+.loading-progress span{display:block;width:38%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#55c8f3,#357fe0);animation:loading-sweep .95s ease-in-out infinite}
+@keyframes whale-float{0%,100%{transform:translateY(1px)}50%{transform:translateY(-4px)}}
+@keyframes whale-spout{0%,100%{opacity:.7;transform:translateY(1px)}50%{opacity:1;transform:translateY(-2px)}}
+@keyframes loading-sweep{0%{transform:translateX(-115%)}100%{transform:translateX(360%)}}
+@media(prefers-reduced-motion:reduce){.loading-whale,.loading-whale .whale-water,.loading-progress span{animation:none}.loading-screen{transition:none}}
+ 
 /* Friends and safe, aggregate-only progress sharing. */
 .community-auth{max-width:640px;margin:18px auto 30px;padding:34px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
 .community-auth-icon{display:grid;place-items:center;width:76px;height:76px;border-radius:24px;background:linear-gradient(135deg,#e0f5ff,#dceaff);font-size:38px;box-shadow:0 12px 30px rgba(43,134,199,.12)}
