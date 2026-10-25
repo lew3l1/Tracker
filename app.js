@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const KEYS = { habits: 'forma.habits.v1', logs: 'forma.logs.v1', journal: 'forma.journal.v1', theme: 'forma.theme.v1' };
+  const KEYS = { habits: 'forma.habits.v1', logs: 'forma.logs.v1', journal: 'forma.journal.v1', theme: 'forma.theme.v1', auth: 'forma.auth.session.v1' };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const categories = ['Здоровье', 'Развитие', 'Фокус', 'Осознанность'];
@@ -57,6 +57,7 @@
   function write(key, value) {
     try {
       localStorage.setItem(key, JSON.stringify(value));
+      if ([KEYS.habits, KEYS.logs, KEYS.journal].includes(key)) scheduleCloudSync();
       return true;
     } catch (error) {
       console.error('Не удалось сохранить данные:', error);
@@ -70,6 +71,14 @@
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   }
+  let session = read(KEYS.auth, null);
+  let hydratingCloud = true;
+  let cloudTimer = 0;
+  let cloudSyncInFlight = false;
+  let accountMode = 'login';
+  let assistantBusy = false;
+  let assistantHistory = [];
+
   let habits = read(KEYS.habits, null);
   if (!Array.isArray(habits)) {
     habits = seedHabits;
@@ -132,7 +141,7 @@
   }
   function saveLogs() { write(KEYS.logs, logs); }
   function navigate(view) {
-    if (!['today', 'habits', 'insights', 'journal'].includes(view)) return;
+    if (!['today', 'habits', 'table', 'insights', 'journal'].includes(view)) return;
     activeView = view;
     $$('.view').forEach(section => {
       const active = section.id === 'view-' + view;
@@ -140,16 +149,19 @@
       section.classList.toggle('active', active);
     });
     $$('.nav-link').forEach(button => button.classList.toggle('active', button.dataset.view === view));
-    $('#crumb').textContent = ({ today: 'Мой день', habits: 'Привычки', insights: 'Моя динамика', journal: 'Дневник' })[view];
+    $('#crumb').textContent = ({ today: 'Мой день', habits: 'Привычки', table: 'Таблица', insights: 'Моя динамика', journal: 'Дневник' })[view];
+    renderAll();
+  }
+  function setHabitState(id, day, done) {
+    logs[day] ||= {};
+    if (done) logs[day][id] = true;
+    else delete logs[day][id];
+    if (!Object.keys(logs[day]).length) delete logs[day];
+    saveLogs();
     renderAll();
   }
   function toggleHabit(id) {
-    logs[selectedDate] ||= {};
-    logs[selectedDate][id] = !logs[selectedDate][id];
-    if (!logs[selectedDate][id]) delete logs[selectedDate][id];
-    if (!Object.keys(logs[selectedDate]).length) delete logs[selectedDate];
-    saveLogs();
-    renderAll();
+    setHabitState(id, selectedDate, !isDone(id, selectedDate));
   }
   function renderHeader() {
     $('#top-date').textContent = fmt(todayKey(), { day: 'numeric', month: 'long' });
@@ -204,6 +216,24 @@
     const ordered = [...habits].sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name, 'ru') : sort === 'streak' ? streakFor(b.id) - streakFor(a.id) : categories.indexOf(a.category) - categories.indexOf(b.category) || a.name.localeCompare(b.name, 'ru'));
     $('#all-habits-list').innerHTML = ordered.length ? ordered.map(h => '<div class="all-habit-row"><span class="habit-emoji">' + escapeHtml(h.emoji) + '</span><div class="habit-info"><strong>' + escapeHtml(h.name) + '</strong><small>' + escapeHtml(h.category) + (h.description ? ' · ' + escapeHtml(h.description) : '') + '</small></div><span class="habit-meta">♨ ' + streakFor(h.id) + ' дн.</span><div class="habit-actions"><button class="small-action" data-edit="' + escapeHtml(h.id) + '">Изменить</button><button class="small-action" data-delete="' + escapeHtml(h.id) + '">Удалить</button></div></div>').join('') : '<div class="empty-state"><strong>Начни с малого</strong>Нажми «Новая привычка», чтобы создать первый пункт.</div>';
   }
+
+  function renderMatrix() {
+    const daysCount = Number($('#matrix-range').value || 7);
+    const days = range(todayKey(), daysCount);
+    const completed = days.reduce((sum, day) => sum + doneCount(day), 0);
+    const total = days.length * habits.length;
+    $('#matrix-done').textContent = completed;
+    $('#matrix-total').textContent = total;
+    $('#matrix-rate').textContent = total ? Math.round(completed / total * 100) + '%' : '0%';
+    const head = '<thead><tr><th scope="col">Привычка</th>' + days.map(day => '<th scope="col" class="' + (day === todayKey() ? 'matrix-today' : '') + '"><span class="matrix-day">' + fmt(day, { day: 'numeric', month: 'short' }) + '</span><span class="matrix-weekday">' + fmt(day, { weekday: 'short' }).replace('.', '') + '</span></th>').join('') + '</tr></thead>';
+    const body = habits.length ? '<tbody>' + habits.map(habit => '<tr><th scope="row"><span class="matrix-habit-label"><span class="matrix-habit-emoji">' + escapeHtml(habit.emoji) + '</span><span class="matrix-habit-copy"><strong>' + escapeHtml(habit.name) + '</strong><small>' + escapeHtml(habit.category) + '</small></span></span></th>' + days.map(day => {
+      const checked = isDone(habit.id, day);
+      const future = day > todayKey();
+      return '<td class="' + (day === todayKey() ? 'matrix-today' : '') + '"><input class="matrix-check" type="checkbox" data-matrix-toggle="' + escapeHtml(habit.id) + '" data-day="' + day + '" aria-label="' + escapeHtml(habit.name) + ', ' + fmt(day, { day: 'numeric', month: 'long', year: 'numeric' }) + '" ' + (checked ? 'checked' : '') + (future ? ' disabled title="День ещё не наступил"' : '') + '></td>';
+    }).join('') + '</tr>').join('') + '</tbody>' : '<tbody><tr><td colspan="' + (days.length + 1) + '"><div class="empty-state"><strong>Пока нет привычек</strong>Создай первую привычку, и она появится в этой таблице.</div></td></tr></tbody>';
+    $('#habit-matrix').innerHTML = '<caption class="sr-only">Ежедневные отметки привычек за ' + daysCount + ' дней</caption>' + head + body;
+  }
+
   function renderInsights() {
     const days = range(selectedDate, insightRange);
     let totalSlots = days.length * habits.length;
@@ -243,13 +273,312 @@
     renderHeader();
     renderToday();
     renderHabits();
+    renderMatrix();
     renderInsights();
     renderJournal();
+    renderAccountUI();
     $('#go-today').disabled = selectedDate === todayKey();
     $('#journal-today').disabled = selectedDate === todayKey();
     $$('[data-range]').forEach(button => button.classList.toggle('active', Number(button.dataset.range) === insightRange));
     $$('#today-filters [data-category]').forEach(button => button.classList.toggle('active', button.dataset.category === activeFilter));
   }
+
+  function supabaseConfig() {
+    const config = window.FORMA_CONFIG || {};
+    return {
+      url: String(config.supabaseUrl || '').replace(/\/$/, ''),
+      key: String(config.supabaseAnonKey || ''),
+      aiFunctionName: String(config.aiFunctionName || 'ai-assistant')
+    };
+  }
+  function cloudConfigured() {
+    const config = supabaseConfig();
+    return /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(config.url) && config.key.length > 15;
+  }
+  function setAccountMessage(message, type = '') {
+    const node = $('#account-message');
+    node.textContent = message;
+    node.className = 'account-message' + (type ? ' ' + type : '');
+  }
+  function renderAccountUI() {
+    const email = session && session.user && session.user.email;
+    const initial = email ? email.trim().charAt(0).toUpperCase() : 'F';
+    $('#profile-avatar').textContent = initial;
+    $('#profile-title').textContent = email ? email.split('@')[0] : 'Гость';
+    $('#profile-subtitle').textContent = email ? 'Облачный аккаунт' : 'Данные в браузере';
+    $('#account-open').title = email ? 'Аккаунт: ' + email : 'Войти или создать аккаунт';
+    $('#account-logout').hidden = !email;
+    $('#account-submit').disabled = !cloudConfigured();
+    const note = $('#account-cloud-note');
+    if (!cloudConfigured()) {
+      note.textContent = 'Облачный аккаунт ещё не настроен. Пока Forma хранит данные только в этом браузере. Для регистрации подключи Supabase в supabase-config.js и выполни SQL из supabase/migrations.';
+      setAccountMessage('Настрой Supabase, чтобы включить регистрацию и синхронизацию.', '');
+    } else if (email) {
+      note.textContent = 'Ты вошёл(ла) как ' + email + '. Привычки и дневник синхронизируются с личной строкой в базе данных.';
+      setAccountMessage('Аккаунт подключён.', 'success');
+    } else {
+      note.textContent = 'Создай аккаунт, чтобы хранить привычки в облаке и открывать их на других устройствах.';
+      if ($('#account-message').textContent.startsWith('Настрой Supabase')) setAccountMessage('', '');
+    }
+    $('#account-form input').forEach(input => { input.disabled = !cloudConfigured(); });
+    $('#account-submit').textContent = accountMode === 'login' ? 'Войти' : 'Создать аккаунт';
+    $('#account-password').autocomplete = accountMode === 'login' ? 'current-password' : 'new-password';
+    $('#account-dialog [data-account-mode]').forEach(button => button.classList.toggle('active', button.dataset.accountMode === accountMode));
+  }
+  function setAccountMode(mode) {
+    accountMode = mode === 'signup' ? 'signup' : 'login';
+    setAccountMessage('', '');
+    renderAccountUI();
+  }
+  async function supabaseAuthRequest(path, payload, bearer = '') {
+    if (!cloudConfigured()) throw new Error('Сначала настрой Supabase в файле supabase-config.js.');
+    const config = supabaseConfig();
+    const response = await fetch(config.url + '/auth/v1/' + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: config.key, Authorization: 'Bearer ' + (bearer || config.key) },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.msg || data.message || data.error_description || data.error || 'Ошибка авторизации (' + response.status + ').');
+    return data;
+  }
+  function keepSession(data) {
+    if (!data || !data.access_token || !data.user) return false;
+    session = {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      token_type: data.token_type || 'bearer',
+      expires_in: data.expires_in || 3600,
+      expires_at: Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+      user: data.user
+    };
+    localStorage.setItem(KEYS.auth, JSON.stringify(session));
+    return true;
+  }
+  async function refreshAuthSession() {
+    if (!session || !session.refresh_token) throw new Error('Сессия истекла. Войди в аккаунт заново.');
+    const data = await supabaseAuthRequest('token?grant_type=refresh_token', { refresh_token: session.refresh_token });
+    if (!keepSession(data)) throw new Error('Не удалось обновить сессию. Войди в аккаунт заново.');
+    return session;
+  }
+  async function ensureFreshSession() {
+    if (!session || !session.access_token) throw new Error('Войди в свой аккаунт.');
+    if (session.expires_at && session.expires_at < Math.floor(Date.now() / 1000) + 45) await refreshAuthSession();
+  }
+  async function supabaseDataRequest(path, options = {}) {
+    if (!cloudConfigured()) throw new Error('Supabase ещё не настроен.');
+    await ensureFreshSession();
+    const config = supabaseConfig();
+    const makeRequest = () => fetch(config.url + '/rest/v1/' + path, {
+      ...options,
+      headers: { apikey: config.key, Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json', ...(options.headers || {}) }
+    });
+    let response = await makeRequest();
+    if (response.status === 401 && session && session.refresh_token) {
+      await refreshAuthSession();
+      response = await makeRequest();
+    }
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 404 || data.code === 'PGRST205') throw new Error('Таблица user_data ещё не создана. Выполни SQL из supabase/migrations/ в Supabase SQL Editor.');
+      throw new Error(data.message || data.details || data.hint || 'Ошибка базы данных (' + response.status + ').');
+    }
+    return data;
+  }
+  function localSnapshot() {
+    return { habits, logs, journal, theme: document.documentElement.dataset.theme || 'light' };
+  }
+  async function pushCloudData(silent = false) {
+    if (!cloudConfigured() || !session || !session.user || hydratingCloud || cloudSyncInFlight) return;
+    cloudSyncInFlight = true;
+    const config = supabaseConfig();
+    const payload = localSnapshot();
+    try {
+      await supabaseDataRequest('user_data?on_conflict=user_id', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify({ user_id: session.user.id, payload, updated_at: new Date().toISOString() })
+      });
+      if (!silent) $('#profile-subtitle').textContent = 'Синхронизировано';
+    } catch (error) {
+      console.error('Ошибка облачной синхронизации Forma:', error);
+      $('#profile-subtitle').textContent = 'Нет синхронизации';
+      if (!silent) toast('Не удалось синхронизировать данные: ' + error.message);
+    } finally {
+      cloudSyncInFlight = false;
+    }
+  }
+  function scheduleCloudSync() {
+    if (!session || !cloudConfigured() || hydratingCloud) return;
+    clearTimeout(cloudTimer);
+    cloudTimer = setTimeout(() => pushCloudData(true), 800);
+  }
+  async function syncAccountData() {
+    if (!session || !session.user) return;
+    const localBeforeSync = localSnapshot();
+    try {
+      const rows = await supabaseDataRequest('user_data?select=payload,updated_at&user_id=eq.' + encodeURIComponent(session.user.id) + '&limit=1', { method: 'GET' });
+      if (Array.isArray(rows) && rows.length && rows[0].payload && typeof rows[0].payload === 'object') {
+        // Keep a recoverable copy of guest/local progress before switching to this account.
+        try { localStorage.setItem('forma.guest.backup.v1', JSON.stringify({ savedAt: new Date().toISOString(), ...localBeforeSync })); } catch (error) { console.warn('Не удалось сохранить гостевую копию.', error); }
+        const remote = rows[0].payload;
+        habits = Array.isArray(remote.habits) ? remote.habits : habits;
+        logs = remote.logs && typeof remote.logs === 'object' ? remote.logs : {};
+        journal = remote.journal && typeof remote.journal === 'object' ? remote.journal : {};
+        hydratingCloud = true;
+        write(KEYS.habits, habits); write(KEYS.logs, logs); write(KEYS.journal, journal);
+        if (remote.theme === 'light' || remote.theme === 'dark') setTheme(remote.theme);
+        hydratingCloud = false;
+        renderAll();
+        $('#profile-subtitle').textContent = 'Синхронизировано';
+      } else {
+        await pushCloudData(true);
+      }
+    } finally {
+      hydratingCloud = false;
+      renderAll();
+      renderAccountUI();
+    }
+  }
+  async function submitAccount(event) {
+    event.preventDefault();
+    if (!cloudConfigured()) {
+      setAccountMessage('Чтобы включить настоящие аккаунты, создай Supabase-проект и укажи URL и publishable/anon key в supabase-config.js.', 'error');
+      return;
+    }
+    const email = $('#account-email').value.trim().toLowerCase();
+    const password = $('#account-password').value;
+    const submit = $('#account-submit');
+    submit.disabled = true;
+    submit.textContent = accountMode === 'login' ? 'Входим…' : 'Создаём…';
+    setAccountMessage('Подключаемся к аккаунту…');
+    try {
+      if (accountMode === 'signup') {
+        const data = await supabaseAuthRequest('signup', {
+          email, password,
+          options: { emailRedirectTo: window.location.href.split('#')[0] }
+        });
+        if (keepSession(data)) {
+          await syncAccountData();
+          $('#account-dialog').close();
+          toast('Аккаунт создан. Данные будут синхронизироваться автоматически.');
+        } else {
+          setAccountMessage('Запрос регистрации принят. Проверь почту, подтверди адрес, затем войди сюда.', 'success');
+        }
+      } else {
+        const data = await supabaseAuthRequest('token?grant_type=password', { email, password });
+        if (!keepSession(data)) throw new Error('Сервис не вернул действующую сессию.');
+        await syncAccountData();
+        $('#account-dialog').close();
+        toast('Ты вошёл(ла). Аккаунт подключён.');
+      }
+    } catch (error) {
+      console.error('Ошибка аккаунта Forma:', error);
+      setAccountMessage(error.message || 'Не удалось выполнить запрос.', 'error');
+    } finally {
+      submit.disabled = !cloudConfigured();
+      renderAccountUI();
+    }
+  }
+  async function signOutAccount() {
+    if (session && session.access_token && cloudConfigured()) {
+      try { await supabaseAuthRequest('logout', {}, session.access_token); }
+      catch (error) { console.warn('Не удалось завершить серверную сессию:', error); }
+    }
+    session = null;
+    localStorage.removeItem(KEYS.auth);
+    renderAccountUI();
+    $('#account-dialog').close();
+    toast('Ты вышел(ла). Локальные данные остались в этом браузере.');
+  }
+  async function initializeAccount() {
+    renderAccountUI();
+    if (!cloudConfigured()) { hydratingCloud = false; return; }
+    if (session && session.access_token) {
+      try {
+        await refreshAuthSessionIfNeeded();
+        await syncAccountData();
+      } catch (error) {
+        console.error('Не удалось восстановить облачную сессию:', error);
+        $('#profile-subtitle').textContent = 'Войди снова';
+      }
+    }
+    hydratingCloud = false;
+  }
+  async function refreshAuthSessionIfNeeded() {
+    if (session && session.expires_at && session.expires_at < Math.floor(Date.now() / 1000) + 45) await refreshAuthSession();
+  }
+  function appendAssistantMessage(content, who = 'reply', extraClass = '') {
+    const node = document.createElement('div');
+    node.className = 'assistant-message ' + (who === 'user' ? 'assistant-user' : 'assistant-reply') + (extraClass ? ' ' + extraClass : '');
+    node.textContent = content;
+    $('#assistant-messages').appendChild(node);
+    $('#assistant-messages').scrollTop = $('#assistant-messages').scrollHeight;
+    return node;
+  }
+  function openAssistant() {
+    $('#assistant-panel').hidden = false;
+    $('#assistant-fab').setAttribute('aria-expanded', 'true');
+    setTimeout(() => $('#assistant-input').focus(), 60);
+  }
+  function closeAssistant() {
+    $('#assistant-panel').hidden = true;
+    $('#assistant-fab').setAttribute('aria-expanded', 'false');
+  }
+  async function askAssistant(rawText) {
+    const text = String(rawText || '').trim();
+    if (!text || assistantBusy) return;
+    $('#assistant-input').value = '';
+    appendAssistantMessage(text, 'user');
+    assistantHistory.push({ role: 'user', content: text });
+    if (!cloudConfigured()) {
+      appendAssistantMessage('ИИ пока не подключён к серверу. Сначала настрой Supabase по инструкции в README: так ключ ИИ останется на сервере, а не в открытом JavaScript.', 'reply', 'assistant-error');
+      return;
+    }
+    if (!session || !session.access_token) {
+      appendAssistantMessage('Чтобы пользоваться персональным ИИ-помощником, сначала войди или создай аккаунт в Forma.', 'reply', 'assistant-error');
+      return;
+    }
+    const config = supabaseConfig();
+    assistantBusy = true;
+    $('#assistant-send').disabled = true;
+    $('#assistant-status').textContent = 'Думаю…';
+    const typing = appendAssistantMessage('Секунду, подбираю ответ…', 'reply', 'assistant-typing');
+    try {
+      await ensureFreshSession();
+      const response = await fetch(config.url + '/functions/v1/' + config.aiFunctionName, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: config.key, Authorization: 'Bearer ' + session.access_token },
+        body: JSON.stringify({
+          messages: assistantHistory.slice(-12),
+          context: {
+            date: todayKey(),
+            completionPercent: rate(todayKey()),
+            completedCount: doneCount(todayKey()),
+            habits: habits.map(h => ({ name: h.name, category: h.category, doneToday: isDone(h.id, todayKey()) })).slice(0, 40)
+          }
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || data.message || (response.status === 404 ? 'Функция ИИ ещё не развёрнута. Следуй разделу AI в README.' : 'Сервис ИИ ответил ошибкой (' + response.status + ').'));
+      const answer = String(data.reply || data.answer || '').trim();
+      if (!answer) throw new Error('ИИ вернул пустой ответ. Проверь настройки серверной функции.');
+      typing.remove();
+      assistantHistory.push({ role: 'assistant', content: answer });
+      assistantHistory = assistantHistory.slice(-12);
+      appendAssistantMessage(answer, 'reply');
+      $('#assistant-status').textContent = 'Готов помочь';
+    } catch (error) {
+      console.error('Ошибка ИИ-помощника Forma:', error);
+      typing.remove();
+      appendAssistantMessage(error.message || 'Не удалось получить ответ. Попробуй ещё раз.', 'reply', 'assistant-error');
+      $('#assistant-status').textContent = 'Нужно проверить подключение';
+    } finally {
+      assistantBusy = false;
+      $('#assistant-send').disabled = false;
+    }
+  }
+
   function toast(message) {
     const node = $('#toast');
     if (!node) return;
