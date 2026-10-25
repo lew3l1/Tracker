@@ -401,6 +401,7 @@
   });
   $('#theme-toggle').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
   $('#backup-btn').addEventListener('click', exportData);
+  $('#restore-btn').addEventListener('click', () => $('#restore-file').click());
   $('.sidebar-bottom .avatar').addEventListener('dblclick', () => $('#restore-file').click());
   $('#restore-file').addEventListener('change', event => importData(event.target.files && event.target.files[0]));
   const storedTheme = read(KEYS.theme, null);
