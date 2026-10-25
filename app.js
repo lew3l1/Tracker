@@ -294,12 +294,12 @@
   function navigate(view) {
     if (!['today', 'habits', 'table', 'insights', 'journal', 'focus', 'friends'].includes(view)) return;
     activeView = view;
-    $('.view').forEach(section => {
+    $$('.view').forEach(section => {
       const active = section.id === 'view-' + view;
       section.hidden = !active;
       section.classList.toggle('active', active);
     });
-    $('.nav-link').forEach(button => button.classList.toggle('active', button.dataset.view === view));
+    $$('.nav-link').forEach(button => button.classList.toggle('active', button.dataset.view === view));
     $('#crumb').textContent = ({ today: 'Мой день', habits: 'Привычки', table: 'Таблица', insights: 'Моя динамика', journal: 'Дневник', focus: 'Фокус и напоминания', friends: 'Друзья' })[view];
     renderAll();
     if (view === 'friends') loadCommunity();
