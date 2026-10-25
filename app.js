@@ -94,7 +94,7 @@
     let node;
     while ((node = walker.nextNode())) {
       const parent = node.parentElement;
-      if (!parent || parent.closest('script,style,textarea,#account-profile-name,#account-profile-email,.assistant-message')) continue;
+      if (!parent || parent.closest('script,style,textarea,#account-profile-name,#account-profile-email,.assistant-message:not(#assistant-welcome)')) continue;
       const translated = translateValue(node.nodeValue);
       if (translated !== node.nodeValue) node.nodeValue = translated;
     }
@@ -677,6 +677,7 @@
     $('#account-submit').textContent = accountMode === 'login' ? 'Войти' : 'Создать аккаунт';
     $('#account-password').autocomplete = accountMode === 'login' ? 'current-password' : 'new-password';
     $$('#account-dialog [data-account-mode]').forEach(button => button.classList.toggle('active', button.dataset.accountMode === accountMode));
+    applyLanguage();
   }  function setAccountMode(mode) {
     accountMode = mode === 'signup' ? 'signup' : 'login';
     setAccountMessage('', '');
