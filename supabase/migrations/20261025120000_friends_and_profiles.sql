@@ -235,6 +235,8 @@ begin
 end;
 $$;
 
+revoke all on function public.handle_new_forma_profile() from public, anon, authenticated;
+
 -- This RPC exposes only aggregate progress for accepted friends.
 -- Habit names, daily notes, journal entries, and email addresses are never returned.
 create or replace function public.friend_progress(p_today date, p_week_start date)
