@@ -1,6 +1,15 @@
 (() => {
   'use strict';
 
+  // Hide the boot overlay even if a later render or event binding throws.
+  const bootFailsafe = setTimeout(() => {
+    const screen = document.getElementById('loading-screen');
+    if (screen) {
+      screen.classList.add('is-hidden');
+      setTimeout(() => screen.remove(), 220);
+    }
+  }, 2500);
+
   const KEYS = { habits: 'forma.habits.v1', logs: 'forma.logs.v1', journal: 'forma.journal.v1', language: 'forma.language.v1', reminders: 'forma.reminders.v1', theme: 'forma.theme.v1', auth: 'forma.auth.session.v1', owner: 'forma.data.owner.v1' };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -753,10 +762,24 @@
     setAccountMessage('', '');
     renderAccountUI();
   }
+  async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } catch (error) {
+      if (error && error.name === 'AbortError') {
+        throw new Error('Supabase не ответил за 12 секунд. Проверь соединение и доступность проекта.');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
   async function supabaseAuthRequest(path, payload, bearer = '') {
     if (!cloudConfigured()) throw new Error('Сначала настрой Supabase в файле supabase-config.js.');
     const config = supabaseConfig();
-    const response = await fetch(config.url + '/auth/v1/' + path, {
+    const response = await fetchWithTimeout(config.url + '/auth/v1/' + path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: config.key, Authorization: 'Bearer ' + (bearer || config.key) },
       body: JSON.stringify(payload)
@@ -792,7 +815,7 @@
     if (!cloudConfigured()) throw new Error('Supabase ещё не настроен.');
     await ensureFreshSession();
     const config = supabaseConfig();
-    const makeRequest = () => fetch(config.url + '/rest/v1/' + path, {
+    const makeRequest = () => fetchWithTimeout(config.url + '/rest/v1/' + path, {
       ...options,
       headers: { apikey: config.key, Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json', ...(options.headers || {}) }
     });
@@ -1455,10 +1478,11 @@
         await refreshAuthSessionIfNeeded();
         await syncAccountData();
       } catch (error) {
+        cloudSyncStatus = 'error';
         console.error('Не удалось восстановить облачную сессию:', error);
-        $('#profile-subtitle').textContent = 'Войди снова';
-        $('#account-dialog').showModal();
+        renderAccountUI();
         setAccountMessage('Не удалось загрузить облачные данные: ' + error.message, 'error');
+        toast('Синхронизация не удалась. Локальные данные доступны; открой профиль для подробностей.');
       }
     }
     hydratingCloud = false;
@@ -1774,26 +1798,28 @@
   });
 
   let loadingFinished = false;
-  let loadingFailsafe;
   function finishLoadingScreen() {
     if (loadingFinished) return;
     loadingFinished = true;
-    clearTimeout(loadingFailsafe);
+    clearTimeout(bootFailsafe);
     const screen = $('#loading-screen');
     if (!screen) return;
     screen.classList.add('is-hidden');
     setTimeout(() => screen.remove(), 220);
   }
-  loadingFailsafe = setTimeout(finishLoadingScreen, 2200);
   const storedTheme = read(KEYS.theme, null);
   setTheme(storedTheme === 'dark' || storedTheme === 'light' ? storedTheme : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
-  renderAll();
+  try {
+    renderAll();
+  } catch (error) {
+    console.error('Ошибка первичной отрисовки Forma:', error);
+  }
   initializeAccount().catch(error => {
     hydratingCloud = false;
+    cloudSyncStatus = session && session.user ? 'error' : 'local';
     console.error('Не удалось инициализировать аккаунт Forma:', error);
-    renderAccountUI();
+    try { renderAccountUI(); } catch (renderError) { console.error('Не удалось обновить статус аккаунта:', renderError); }
   }).finally(() => {
-    clearTimeout(loadingFailsafe);
     finishLoadingScreen();
   });
 })();
