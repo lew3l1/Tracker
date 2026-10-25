@@ -56,29 +56,29 @@
   const TRANSLATIONS_REVERSE = Object.fromEntries(Object.entries(TRANSLATIONS).map(([ru, en]) => [en, ru]));
   function translateValue(value) {
     const raw = String(value ?? '');
-    const lead = (raw.match(/^\\s*/) || [''])[0];
-    const trail = (raw.match(/\\s*$/) || [''])[0];
+    const lead = (raw.match(/^\s*/) || [''])[0];
+    const trail = (raw.match(/\s*$/) || [''])[0];
     const core = raw.slice(lead.length, raw.length - trail.length);
     if (!core) return raw;
     const lookup = language === 'en' ? TRANSLATIONS : TRANSLATIONS_REVERSE;
     if (Object.prototype.hasOwnProperty.call(lookup, core)) return lead + lookup[core] + trail;
     let match;
     if (language === 'en') {
-      match = core.match(/^(\\d+) выполнено$/); if (match) return lead + match[1] + ' completed' + trail;
-      match = core.match(/^(\\d+) осталось$/); if (match) return lead + match[1] + ' remaining' + trail;
-      match = core.match(/^(\\d+) дней?$/); if (match) return lead + match[1] + (match[1] === '1' ? ' day' : ' days') + trail;
-      match = core.match(/^(\\d+) дн\\.$/); if (match) return lead + match[1] + (match[1] === '1' ? ' day' : ' days') + trail;
-      match = core.match(/^(\\d+) привычек$/); if (match) return lead + match[1] + ' habits' + trail;
-      match = core.match(/^(\\d+)% · (\\d+) привычек$/); if (match) return lead + match[1] + '% · ' + match[2] + ' habits' + trail;
-      match = core.match(/^(\\d+) выполнено сегодня ✓$/); if (match) return lead + match[1] + ' completed today ✓' + trail;
-      match = core.match(/^\u001f(.+)$/); if (match) return lead + match[1] + trail;
+      match = core.match(/^(\d+) выполнено$/); if (match) return lead + match[1] + ' completed' + trail;
+      match = core.match(/^(\d+) осталось$/); if (match) return lead + match[1] + ' remaining' + trail;
+      match = core.match(/^(\d+) дней?$/); if (match) return lead + match[1] + (match[1] === '1' ? ' day' : ' days') + trail;
+      match = core.match(/^(\d+) дн\.$/); if (match) return lead + match[1] + (match[1] === '1' ? ' day' : ' days') + trail;
+      match = core.match(/^(\d+) привычек$/); if (match) return lead + match[1] + ' habits' + trail;
+      match = core.match(/^(\d+)% · (\d+) привычек$/); if (match) return lead + match[1] + '% · ' + match[2] + ' habits' + trail;
+      match = core.match(/^(\d+) выполнено сегодня ✓$/); if (match) return lead + match[1] + ' completed today ✓' + trail;
+
     } else {
-      match = core.match(/^(\\d+) completed$/); if (match) return lead + match[1] + ' выполнено' + trail;
-      match = core.match(/^(\\d+) remaining$/); if (match) return lead + match[1] + ' осталось' + trail;
-      match = core.match(/^(\\d+) days?$/); if (match) return lead + match[1] + ' дней' + trail;
-      match = core.match(/^(\\d+) habits$/); if (match) return lead + match[1] + ' привычек' + trail;
-      match = core.match(/^(\\d+)% · (\\d+) habits$/); if (match) return lead + match[1] + '% · ' + match[2] + ' привычек' + trail;
-      match = core.match(/^(\\d+) completed today ✓$/); if (match) return lead + match[1] + ' выполнено сегодня ✓' + trail;
+      match = core.match(/^(\d+) completed$/); if (match) return lead + match[1] + ' выполнено' + trail;
+      match = core.match(/^(\d+) remaining$/); if (match) return lead + match[1] + ' осталось' + trail;
+      match = core.match(/^(\d+) days?$/); if (match) return lead + match[1] + ' дней' + trail;
+      match = core.match(/^(\d+) habits$/); if (match) return lead + match[1] + ' привычек' + trail;
+      match = core.match(/^(\d+)% · (\d+) habits$/); if (match) return lead + match[1] + '% · ' + match[2] + ' привычек' + trail;
+      match = core.match(/^(\d+) completed today ✓$/); if (match) return lead + match[1] + ' выполнено сегодня ✓' + trail;
     }
     return raw;
   }
