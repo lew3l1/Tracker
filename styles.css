@@ -97,3 +97,27 @@
   .account-footer{flex-direction:column}
 }
 @media(prefers-reduced-motion:reduce){.assistant-panel{animation:none}.assistant-fab{transition:none}}
+
+
+/* Fix sidebar behavior around tablet widths and make navigation usable */
+@media (min-width:641px) and (max-width:850px){
+  .sidebar{width:78px;padding-left:8px;padding-right:8px}
+  .sidebar .brand{margin:0 0 36px}
+  .sidebar .nav-link{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:11px 3px;font-size:10px}
+  .sidebar .nav-link>.nav-icon{width:auto;font-size:21px}
+  .sidebar .nav-link>.nav-text{display:block;font-size:9px;line-height:1.1;white-space:normal;text-align:center;overflow-wrap:anywhere;max-width:100%}
+  .sidebar .nav-link small{display:none}
+  .sidebar .sidebar-bottom{justify-content:center;flex-wrap:wrap}
+  .sidebar .profile-account{justify-content:center;flex:none}
+  .sidebar .profile-copy{display:none}
+  .sidebar .sidebar-tools{display:flex;flex-direction:column;gap:4px}
+  .sidebar .sidebar-tools .icon-btn{width:28px;height:28px}
+  .main{margin-left:78px}
+}
+@media(max-width:640px){
+  .sidebar .nav-link>.nav-text{display:block}
+  .sidebar .nav-link{overflow:hidden}
+  .sidebar .nav-link.active{background:var(--accent-soft)}
+  .habit-dialog[open]{max-height:calc(100dvh - 24px);overflow:auto}
+  .account-dialog[open]{max-height:calc(100dvh - 24px);overflow:auto}
+}
