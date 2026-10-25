@@ -195,6 +195,20 @@
   let assistantBusy = false;
   let assistantHistory = [];
 
+  let communityProfile = null;
+  let communityFriends = [];
+  let communityIncoming = [];
+  let communityOutgoing = [];
+  let communitySearchResults = [];
+  let communitySearchQuery = '';
+  let communityLoading = false;
+  let communitySearchLoading = false;
+  let communityActionBusy = false;
+  let communityError = '';
+  let communityProfileMessage = '';
+  let communityProfileMessageType = '';
+  let communitySearchError = '';
+
   let habits = read(KEYS.habits, null);
   if (!Array.isArray(habits)) {
     habits = seedHabits;
@@ -269,16 +283,17 @@
   }
   function saveLogs() { write(KEYS.logs, logs); }
   function navigate(view) {
-    if (!['today', 'habits', 'table', 'insights', 'journal', 'focus'].includes(view)) return;
+    if (!['today', 'habits', 'table', 'insights', 'journal', 'focus', 'friends'].includes(view)) return;
     activeView = view;
-    $$('.view').forEach(section => {
+    $('.view').forEach(section => {
       const active = section.id === 'view-' + view;
       section.hidden = !active;
       section.classList.toggle('active', active);
     });
-    $$('.nav-link').forEach(button => button.classList.toggle('active', button.dataset.view === view));
-    $('#crumb').textContent = ({ today: 'Мой день', habits: 'Привычки', table: 'Таблица', insights: 'Моя динамика', journal: 'Дневник', focus: 'Фокус и напоминания' })[view];
+    $('.nav-link').forEach(button => button.classList.toggle('active', button.dataset.view === view));
+    $('#crumb').textContent = ({ today: 'Мой день', habits: 'Привычки', table: 'Таблица', insights: 'Моя динамика', journal: 'Дневник', focus: 'Фокус и напоминания', friends: 'Друзья' })[view];
     renderAll();
+    if (view === 'friends') loadCommunity();
   }
   function setHabitState(id, day, done) {
     logs[day] ||= {};
@@ -615,6 +630,7 @@
     renderJournal();
     renderFocus();
     renderAccountUI();
+    renderCommunity();
     applyLanguage();
     $('#go-today').disabled = selectedDate === todayKey();
     $('#journal-today').disabled = selectedDate === todayKey();
@@ -787,11 +803,335 @@
     }
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      if (response.status === 404 || data.code === 'PGRST205') throw new Error('Таблица user_data ещё не создана. Выполни SQL из supabase/migrations/ в Supabase SQL Editor.');
+      if (response.status === 404 || data.code === 'PGRST205') throw new Error('Объекты базы данных Forma ещё не созданы. Выполни SQL из supabase/migrations/ в Supabase SQL Editor.');
       throw new Error(data.message || data.details || data.hint || 'Ошибка базы данных (' + response.status + ').');
     }
     return data;
   }
+
+  function communityText(value) { return escapeHtml(translateValue(value)); }
+  function defaultCommunityUsername(userId) {
+    return 'user_' + String(userId || '').replace(/[^a-f0-9]/gi, '').toLowerCase().slice(0, 8);
+  }
+  function communityDisplayName(user) {
+    const metadata = user && user.user_metadata && typeof user.user_metadata === 'object' ? user.user_metadata : {};
+    const candidate = String(metadata.full_name || metadata.name || metadata.display_name || metadata.user_name || '').trim();
+    return (candidate || 'Пользователь Forma').slice(0, 32);
+  }
+  function communityAvatarMarkup(person) {
+    const name = String(person && (person.display_name || person.username) || 'F').trim();
+    const initial = escapeHtml((name || 'F').slice(0, 1).toLocaleUpperCase(localeForLanguage()));
+    let photo = '';
+    try {
+      const parsed = new URL(String(person && person.avatar_url || ''));
+      if (parsed.protocol === 'https:') photo = parsed.href;
+    } catch { /* Keep the generated avatar when no photo is configured. */ }
+    return '<span class="community-avatar"><span>' + initial + '</span>' +
+      (photo ? '<img src="' + escapeHtml(photo) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '') +
+      '</span>';
+  }
+  function communityPersonTop(person) {
+    return '<div class="community-person-top">' + communityAvatarMarkup(person) +
+      '<div class="community-person-identity"><strong>' + escapeHtml(person.display_name || person.username || 'Forma user') +
+      '</strong><small>@' + escapeHtml(person.username || 'user') + '</small></div></div>';
+  }
+  function communityActionButton(action, label, attrs = '', variant = '') {
+    return '<button type="button" class="community-action-btn' + (variant ? ' ' + variant : '') +
+      '" data-community-action="' + escapeHtml(action) + '" ' + attrs +
+      (communityActionBusy ? ' disabled' : '') + '>' + communityText(label) + '</button>';
+  }
+  function communityRequestCard(request, direction) {
+    const person = request.profile || { username: 'user', display_name: 'Пользователь Forma' };
+    const actions = direction === 'incoming'
+      ? communityActionButton('accept', 'Принять', 'data-request-id="' + escapeHtml(request.id) + '"', 'primary') +
+        communityActionButton('reject', 'Отклонить', 'data-request-id="' + escapeHtml(request.id) + '"', 'danger')
+      : communityActionButton('cancel', 'Отменить заявку', 'data-request-id="' + escapeHtml(request.id) + '"');
+    return '<article class="community-person">' + communityPersonTop(person) +
+      '<div class="community-person-actions">' + actions + '</div></article>';
+  }
+  function communitySearchCard(person) {
+    const id = escapeHtml(person.id);
+    const incoming = communityIncoming.find(request => request.sender_id === person.id);
+    const outgoing = communityOutgoing.find(request => request.recipient_id === person.id);
+    const isFriend = communityFriends.some(friend => friend.friend_id === person.id);
+    let button;
+    if (isFriend) button = communityActionButton('noop', 'Уже в друзьях', 'disabled aria-disabled="true"');
+    else if (incoming) button = communityActionButton('accept', 'Принять заявку', 'data-request-id="' + escapeHtml(incoming.id) + '"', 'primary');
+    else if (outgoing) button = communityActionButton('noop', 'Заявка отправлена', 'disabled aria-disabled="true"');
+    else button = communityActionButton('send', 'Добавить в друзья', 'data-user-id="' + id + '"', 'primary');
+    return '<article class="community-person">' + communityPersonTop(person) +
+      '<div class="community-person-actions">' + button + '</div></article>';
+  }
+  function communityFriendCard(friend) {
+    const habitCount = Math.max(0, Number(friend.habit_count) || 0);
+    const doneToday = Math.max(0, Number(friend.done_today) || 0);
+    const todayPercent = habitCount ? Math.max(0, Math.min(100, Number(friend.progress_percent) || 0)) : 0;
+    const weekPercent = Math.max(0, Math.min(100, Number(friend.weekly_percent) || 0));
+    const updated = friend.updated_at ? new Date(friend.updated_at) : null;
+    const updatedText = updated && !Number.isNaN(updated.getTime())
+      ? (language === 'en' ? 'Updated: ' : 'Обновлено: ') + updated.toLocaleString(localeForLanguage(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+      : communityText('Последнее обновление не записано');
+    const todayValue = habitCount ? doneToday + ' / ' + habitCount : '—';
+    const weekValue = habitCount ? weekPercent + '%' : '—';
+    return '<article class="community-friend-card">' +
+      communityPersonTop(friend) +
+      '<div class="community-progress-grid">' +
+        '<div class="community-progress-metric"><span>' + communityText('Сегодня') + ' · ' + communityText('выполнено сегодня') + '</span><strong>' + escapeHtml(todayValue) + '</strong></div>' +
+        '<div class="community-progress-metric"><span>' + communityText('За 7 дней') + ' · ' + communityText('Среднее выполнение') + '</span><strong>' + escapeHtml(weekValue) + '</strong></div>' +
+      '</div>' +
+      '<div class="community-progress-bar" role="progressbar" aria-label="' + communityText('Выполнение за сегодня') + '" aria-valuenow="' + todayPercent + '" aria-valuemin="0" aria-valuemax="100"><span style="width:' + todayPercent + '%"></span></div>' +
+      '<small class="community-friend-updated">' + escapeHtml(updatedText) + '</small>' +
+      '<div class="community-person-actions">' + communityActionButton('remove', 'Удалить из друзей', 'data-user-id="' + escapeHtml(friend.friend_id) + '"', 'danger') + '</div>' +
+    '</article>';
+  }
+  function renderCommunity() {
+    const authRequired = $('#community-auth-required');
+    const content = $('#community-content');
+    if (!authRequired || !content) return;
+    const signedIn = Boolean(session && session.user && cloudConfigured());
+    authRequired.hidden = signedIn;
+    content.hidden = !signedIn;
+    if (!signedIn) return;
+
+    const status = $('#community-status');
+    status.textContent = communityError ? translateValue(communityError) : communityLoading ? translateValue('Обновляем круг друзей…') : '';
+    status.className = 'community-status' + (communityError ? ' error' : '');
+
+    const usernameInput = $('#friend-username');
+    const displayInput = $('#friend-display-name');
+    if (communityProfile) {
+      if (document.activeElement !== usernameInput) usernameInput.value = communityProfile.username || '';
+      if (document.activeElement !== displayInput) displayInput.value = communityProfile.display_name || '';
+    }
+    $('#friend-profile-message').textContent = translateValue(communityProfileMessage);
+    $('#friend-profile-message').className = 'community-form-message' + (communityProfileMessageType ? ' ' + communityProfileMessageType : '');
+    $('#friend-profile-save').disabled = communityActionBusy;
+    $('#friend-search-submit').disabled = communitySearchLoading || communityActionBusy;
+    $('#friend-incoming-count').textContent = String(communityIncoming.length);
+    $('#friend-outgoing-count').textContent = String(communityOutgoing.length);
+    $('#friend-list-count').textContent = String(communityFriends.length);
+
+    const searchResults = $('#friend-search-results');
+    if (communitySearchLoading) searchResults.innerHTML = '<p class="community-empty">' + communityText('Ищем пользователей…') + '</p>';
+    else if (communitySearchError) searchResults.innerHTML = '<p class="community-empty">' + escapeHtml(translateValue(communitySearchError)) + '</p>';
+    else if (!communitySearchQuery) searchResults.innerHTML = '<p class="community-empty">' + communityText('Введи username, чтобы найти человека.') + '</p>';
+    else if (!communitySearchResults.length) searchResults.innerHTML = '<p class="community-empty">' + communityText('Найди первого друга или проверь написание username.') + '</p>';
+    else searchResults.innerHTML = communitySearchResults.map(communitySearchCard).join('');
+
+    $('#friend-incoming-list').innerHTML = communityLoading
+      ? '<p class="community-empty">' + communityText('Обновляем круг друзей…') + '</p>'
+      : communityIncoming.length ? communityIncoming.map(request => communityRequestCard(request, 'incoming')).join('')
+      : '<p class="community-empty">' + communityText('Заявок пока нет.') + '</p>';
+    $('#friend-outgoing-list').innerHTML = communityLoading
+      ? '<p class="community-empty">' + communityText('Обновляем круг друзей…') + '</p>'
+      : communityOutgoing.length ? communityOutgoing.map(request => communityRequestCard(request, 'outgoing')).join('')
+      : '<p class="community-empty">' + communityText('Отправленных заявок нет.') + '</p>';
+    $('#friend-list').innerHTML = communityLoading
+      ? '<p class="community-empty">' + communityText('Обновляем круг друзей…') + '</p>'
+      : communityFriends.length ? '<div class="community-friend-grid">' + communityFriends.map(communityFriendCard).join('') + '</div>'
+      : '<p class="community-empty">' + communityText('Добавь первого друга — и вы сможете поддерживать друг друга.') + '</p>';
+    $('.community-avatar img').forEach(imageNode => {
+      imageNode.addEventListener('error', () => imageNode.remove(), { once: true });
+    });
+  }
+  async function ensureCommunityProfile() {
+    const user = session && session.user;
+    if (!user) throw new Error('Сначала войди в аккаунт, чтобы использовать друзей.');
+    const selectPath = 'profiles?select=id,username,display_name,avatar_url&id=eq.' + encodeURIComponent(user.id) + '&limit=1';
+    let rows = await supabaseDataRequest(selectPath, { method: 'GET' });
+    if (!Array.isArray(rows) || !rows.length) {
+      const metadata = user.user_metadata && typeof user.user_metadata === 'object' ? user.user_metadata : {};
+      let avatar = String(metadata.avatar_url || metadata.picture || metadata.photo_url || '');
+      try { const parsed = new URL(avatar); avatar = parsed.protocol === 'https:' ? parsed.href : ''; } catch { avatar = ''; }
+      await supabaseDataRequest('profiles?on_conflict=id', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
+        body: JSON.stringify({
+          id: user.id,
+          username: defaultCommunityUsername(user.id),
+          display_name: communityDisplayName(user),
+          avatar_url: avatar || null
+        })
+      });
+      rows = await supabaseDataRequest(selectPath, { method: 'GET' });
+    }
+    if (!Array.isArray(rows) || !rows.length) throw new Error('Публичный профиль не найден.');
+    communityProfile = rows[0];
+    return communityProfile;
+  }
+  async function loadCommunity() {
+    if (!session || !session.user || !cloudConfigured() || communityLoading) {
+      renderCommunity();
+      return;
+    }
+    communityLoading = true;
+    communityError = '';
+    renderCommunity();
+    const userId = session.user.id;
+    try {
+      await ensureCommunityProfile();
+      const uidValue = encodeURIComponent(userId);
+      const requestQuery = 'select=id,sender_id,recipient_id,created_at&order=created_at.desc&limit=100';
+      const results = await Promise.all([
+        supabaseDataRequest('rpc/friend_progress', {
+          method: 'POST',
+          body: JSON.stringify({ p_today: todayKey(), p_week_start: addDays(todayKey(), -6) })
+        }),
+        supabaseDataRequest('friend_requests?' + requestQuery + '&recipient_id=eq.' + uidValue, { method: 'GET' }),
+        supabaseDataRequest('friend_requests?' + requestQuery + '&sender_id=eq.' + uidValue, { method: 'GET' })
+      ]);
+      communityFriends = Array.isArray(results[0]) ? results[0] : [];
+      const incomingRows = Array.isArray(results[1]) ? results[1] : [];
+      const outgoingRows = Array.isArray(results[2]) ? results[2] : [];
+      const profileIds = [...new Set(incomingRows.map(row => row.sender_id).concat(outgoingRows.map(row => row.recipient_id)))];
+      const profileMap = new Map();
+      if (profileIds.length) {
+        const profiles = await supabaseDataRequest(
+          'profiles?select=id,username,display_name,avatar_url&id=in.(' + profileIds.map(encodeURIComponent).join(',') + ')',
+          { method: 'GET' }
+        );
+        if (Array.isArray(profiles)) profiles.forEach(profile => profileMap.set(profile.id, profile));
+      }
+      communityIncoming = incomingRows.map(row => ({ ...row, profile: profileMap.get(row.sender_id) || { username: 'user', display_name: 'Пользователь Forma' } }));
+      communityOutgoing = outgoingRows.map(row => ({ ...row, profile: profileMap.get(row.recipient_id) || { username: 'user', display_name: 'Пользователь Forma' } }));
+      if (!session || !session.user || session.user.id !== userId) return;
+    } catch (error) {
+      communityError = error.message || 'Не удалось загрузить систему друзей.';
+      console.error('Ошибка загрузки друзей Forma:', error);
+    } finally {
+      communityLoading = false;
+      renderCommunity();
+    }
+  }
+  async function saveCommunityProfile(event) {
+    event.preventDefault();
+    if (!session || !session.user) { $('#account-dialog').showModal(); return; }
+    const username = String($('#friend-username').value || '').trim().replace(/^@+/, '').toLowerCase();
+    const displayName = String($('#friend-display-name').value || '').trim();
+    if (!/^[a-z0-9_]{3,20}$/.test(username)) {
+      communityProfileMessage = 'Username должен содержать от 3 до 20 символов: a–z, 0–9 или _.';
+      communityProfileMessageType = 'error';
+      renderCommunity();
+      return;
+    }
+    if (displayName.length < 2 || displayName.length > 32) {
+      communityProfileMessage = 'Имя должно содержать от 2 до 32 символов.';
+      communityProfileMessageType = 'error';
+      renderCommunity();
+      return;
+    }
+    communityActionBusy = true;
+    communityProfileMessage = '';
+    communityProfileMessageType = '';
+    renderCommunity();
+    try {
+      await supabaseDataRequest('profiles?id=eq.' + encodeURIComponent(session.user.id), {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({ username, display_name: displayName, updated_at: new Date().toISOString() })
+      });
+      await ensureCommunityProfile();
+      communityProfileMessage = 'Профиль сохранён.';
+      communityProfileMessageType = 'success';
+      communitySearchError = '';
+    } catch (error) {
+      communityProfileMessage = /duplicate key|unique constraint|profiles_username|23505/i.test(error.message)
+        ? 'Этот username уже занят.'
+        : error.message || 'Не удалось сохранить профиль.';
+      communityProfileMessageType = 'error';
+      console.error('Ошибка сохранения профиля Forma:', error);
+    } finally {
+      communityActionBusy = false;
+      renderCommunity();
+    }
+  }
+  async function searchCommunity(event) {
+    event.preventDefault();
+    if (!session || !session.user) { $('#account-dialog').showModal(); return; }
+    const query = String($('#friend-search').value || '').trim().replace(/^@+/, '').toLowerCase();
+    communitySearchQuery = query;
+    communitySearchResults = [];
+    communitySearchError = '';
+    if (!/^[a-z0-9_]{2,20}$/.test(query)) {
+      communitySearchError = 'Введи не менее 2 символов username: латинские буквы, цифры или _.';
+      renderCommunity();
+      return;
+    }
+    communitySearchLoading = true;
+    renderCommunity();
+    try {
+      const id = encodeURIComponent(session.user.id);
+      const searchPath = 'profiles?select=id,username,display_name,avatar_url&username=ilike.*' + encodeURIComponent(query) + '*&id=neq.' + id + '&order=username.asc&limit=12';
+      const rows = await supabaseDataRequest(searchPath, { method: 'GET' });
+      communitySearchResults = Array.isArray(rows) ? rows : [];
+    } catch (error) {
+      communitySearchError = error.message || 'Не удалось найти пользователей.';
+      console.error('Ошибка поиска друзей Forma:', error);
+    } finally {
+      communitySearchLoading = false;
+      renderCommunity();
+    }
+  }
+  async function handleCommunityAction(button) {
+    if (communityActionBusy) return;
+    const action = button.dataset.communityAction;
+    if (action === 'noop') return;
+    if (!session || !session.user) {
+      renderAccountUI();
+      $('#account-dialog').showModal();
+      return;
+    }
+    const requestId = button.dataset.requestId;
+    const targetId = button.dataset.userId;
+    if (action === 'remove' && !window.confirm(translateValue('Удалить друга из своего списка?'))) return;
+    communityActionBusy = true;
+    communityError = '';
+    renderCommunity();
+    try {
+      if (action === 'send') {
+        if (!targetId || targetId === session.user.id) throw new Error('Нельзя добавить собственный аккаунт.');
+        await supabaseDataRequest('friend_requests?on_conflict=sender_id,recipient_id', {
+          method: 'POST',
+          headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
+          body: JSON.stringify({ sender_id: session.user.id, recipient_id: targetId })
+        });
+        communityProfileMessage = 'Заявка отправлена.';
+        communityProfileMessageType = 'success';
+      } else if (action === 'accept') {
+        if (!requestId) throw new Error('Заявка не найдена.');
+        await supabaseDataRequest('rpc/accept_friend_request', {
+          method: 'POST',
+          body: JSON.stringify({ p_request_id: requestId })
+        });
+        communityProfileMessage = 'Заявка принята — вы теперь друзья.';
+        communityProfileMessageType = 'success';
+      } else if (action === 'reject' || action === 'cancel') {
+        if (!requestId) throw new Error('Заявка не найдена.');
+        await supabaseDataRequest('friend_requests?id=eq.' + encodeURIComponent(requestId), {
+          method: 'DELETE',
+          headers: { Prefer: 'return=minimal' }
+        });
+        communityProfileMessage = action === 'reject' ? 'Заявка отклонена.' : 'Заявка отменена.';
+        communityProfileMessageType = 'success';
+      } else if (action === 'remove') {
+        if (!targetId) throw new Error('Пользователь не найден.');
+        await supabaseDataRequest('rpc/remove_friend', {
+          method: 'POST',
+          body: JSON.stringify({ p_friend_id: targetId })
+        });
+        communityProfileMessage = 'Друг удалён из списка.';
+        communityProfileMessageType = 'success';
+      }
+    } catch (error) {
+      communityError = error.message || 'Не удалось выполнить действие.';
+      console.error('Ошибка операции с друзьями Forma:', error);
+    } finally {
+      communityActionBusy = false;
+      await loadCommunity();
+      renderCommunity();
+    }
+  }
+
   function localSnapshot() {
     return { habits, logs, journal, reminders, language, theme: document.documentElement.dataset.theme || 'light' };
   }
@@ -1311,6 +1651,8 @@
   }
 
   document.addEventListener('click', event => {
+    const communityAction = event.target.closest('[data-community-action]');
+    if (communityAction) { handleCommunityAction(communityAction).catch(error => { console.error('Ошибка действия с друзьями Forma:', error); toast(error.message || 'Не удалось выполнить действие.'); }); return; }
     const nav = event.target.closest('[data-view]');
     if (nav) navigate(nav.dataset.view);
     const open = event.target.closest('[data-open]');
@@ -1404,6 +1746,9 @@
   $('#account-open-side').addEventListener('click', () => { renderAccountUI(); $('#account-dialog').showModal(); });
   $('#account-close').addEventListener('click', () => $('#account-dialog').close());
   $('#account-form').addEventListener('submit', submitAccount);
+  $('#friend-profile-form').addEventListener('submit', saveCommunityProfile);
+  $('#friend-search-form').addEventListener('submit', searchCommunity);
+  $('#community-login-btn').addEventListener('click', () => { renderAccountUI(); $('#account-dialog').showModal(); });
   $('#google-signin').addEventListener('click', startGoogleSignIn);
   $('#account-logout').addEventListener('click', signOutAccount);
 
@@ -1426,6 +1771,20 @@
     if (event.key === 'Escape') closeAssistant();
   });
 
+  const loadingStartedAt = Date.now();
+  let loadingFinished = false;
+  function finishLoadingScreen() {
+    if (loadingFinished) return;
+    loadingFinished = true;
+    const remaining = Math.max(0, 520 - (Date.now() - loadingStartedAt));
+    setTimeout(() => {
+      const screen = $('#loading-screen');
+      if (!screen) return;
+      screen.classList.add('is-hidden');
+      setTimeout(() => screen.remove(), 500);
+    }, remaining);
+  }
+  const loadingFailsafe = setTimeout(finishLoadingScreen, 6500);
   const storedTheme = read(KEYS.theme, null);
   setTheme(storedTheme === 'dark' || storedTheme === 'light' ? storedTheme : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
   renderAll();
@@ -1433,5 +1792,8 @@
     hydratingCloud = false;
     console.error('Не удалось инициализировать аккаунт Forma:', error);
     renderAccountUI();
+  }).finally(() => {
+    clearTimeout(loadingFailsafe);
+    finishLoadingScreen();
   });
 })();
